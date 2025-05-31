@@ -1,0 +1,11 @@
+[tool.uv.workspace]
+members = [
+    "common",
+    "transcript",
+    "summarize"
+]
+
+[tool.uv.sources]
+common = { workspace = true }
+transcript = { workspace = true }
+summarize = { workspace = true }

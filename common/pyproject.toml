@@ -1,0 +1,22 @@
+[project]
+name = "common"
+version = "0.1.0"
+description = "Common utilities for YouTube tools"
+requires-python = ">=3.13"
+dependencies = [
+    "loguru>=0.7.2",
+    "python-dotenv>=1.0.0",
+]
+
+[tool.uv.sources]
+# No workspace dependencies for common (it's the base)
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
