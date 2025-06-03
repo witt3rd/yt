@@ -101,6 +101,12 @@ class Config:
         """Default output format (json, text, markdown)."""
         return os.getenv("OUTPUT_FORMAT", "text").lower()
 
+    @property
+    def prompts_path(self) -> Path:
+        """Path to prompts directory for dynamic prompt loading."""
+        prompts_dir = os.getenv("PROMPTS_PATH", "./prompts")
+        return Path(prompts_dir)
+
     def validate(self) -> bool:
         """Validate required configuration values.
 
@@ -116,7 +122,9 @@ class Config:
         valid = True
 
         if not self.openai_api_key and not self.anthropic_api_key:
-            logger.warning("No API keys configured (OPENAI_API_KEY or ANTHROPIC_API_KEY)")
+            logger.warning(
+                "No API keys configured (OPENAI_API_KEY or ANTHROPIC_API_KEY)"
+            )
             valid = False
 
         if self.log_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:

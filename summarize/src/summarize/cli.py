@@ -85,7 +85,9 @@ def main(
 
         yt-summarize dQw4w9WgXcQ --languages en,es --style key_takeaways
 
-        yt-summarize alita.txt --style key_takeaways --provider openai
+        yt-summarize alita.txt --style questions --provider openai
+
+        yt-summarize dQw4w9WgXcQ --style questions --provider anthropic
     """
     # Set up logging
     setup_logger(level=log_level, log_file=log_file)

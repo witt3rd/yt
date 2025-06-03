@@ -5,7 +5,6 @@ using OpenAI GPT and Anthropic Claude models with configurable prompts
 and output styles.
 """
 
-
 from enum import Enum
 from pathlib import Path
 
@@ -26,6 +25,7 @@ class SummaryStyle(Enum):
     BULLET_POINTS = "bullet_points"
     KEY_TAKEAWAYS = "key_takeaways"
     CHAPTER_BREAKDOWN = "chapter_breakdown"
+    QUESTIONS = "questions"
 
 
 class VideoSummarizer:
@@ -94,6 +94,36 @@ class VideoSummarizer:
         if not self.openai_client and not self.anthropic_client:
             logger.warning("No AI API keys configured - summarization will not work")
 
+    def _load_prompt_from_file(self, filename: str) -> str:
+        """Load prompt content from a file in the prompts directory.
+
+        Parameters
+        ----------
+        filename : str
+            Name of the prompt file to load.
+
+        Returns
+        -------
+        str
+            Content of the prompt file.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the prompt file doesn't exist.
+        """
+        prompt_path = self.config.prompts_path / filename
+        try:
+            content = prompt_path.read_text(encoding="utf-8")
+            logger.debug(f"Loaded prompt from {prompt_path}")
+            return content
+        except FileNotFoundError:
+            logger.error(f"Prompt file not found: {prompt_path}")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to read prompt file {prompt_path}: {e}")
+            raise
+
     def _get_system_prompt(self, style: SummaryStyle) -> str:
         """Get system prompt for the specified summary style.
 
@@ -107,6 +137,21 @@ class VideoSummarizer:
         str
             System prompt for the AI model.
         """
+        # Handle dynamic prompt loading for QUESTIONS style
+        if style == SummaryStyle.QUESTIONS:
+            try:
+                return self._load_prompt_from_file("question_tree.md")
+            except FileNotFoundError:
+                logger.warning("question_tree.md not found, falling back to default prompt")
+                return (
+                    "You are an expert at reverse engineering question architecture from content. "
+                    "Apply systematic question-oriented analysis to extract the implicit "
+                    "question-answer structure from the provided content, following the "
+                    "four-phase method: central question discovery, domain question extraction, "
+                    "specific and atomic question decomposition, and synthesis chain evaluation."
+                )
+
+        # Static prompts for other styles
         prompts = {
             SummaryStyle.BRIEF: (
                 "You are an expert at creating concise summaries. "
@@ -157,6 +202,7 @@ class VideoSummarizer:
             SummaryStyle.BULLET_POINTS: "Create a bullet-point summary:",
             SummaryStyle.KEY_TAKEAWAYS: "Extract the key takeaways as a numbered list:",
             SummaryStyle.CHAPTER_BREAKDOWN: "Break this down into chapters with titles and summaries:",
+            SummaryStyle.QUESTIONS: "Apply the reverse engineering question architecture methodology to analyze this content:",
         }
 
         instruction = style_instructions.get(
@@ -412,9 +458,7 @@ Transcript:
             raise ValueError("Text file is empty")
 
         segment = TranscriptSegment(
-            text=text,
-            start=0.0,
-            duration=float(len(text.split()))
+            text=text, start=0.0, duration=float(len(text.split()))
         )
         return [segment]
 
@@ -422,13 +466,13 @@ Transcript:
         self,
         file_path: Path,
         style: SummaryStyle = SummaryStyle.BRIEF,
-        provider: str | None = None
+        provider: str | None = None,
     ) -> str:
         """Summarize content from a text file."""
         logger.info(f"Reading text file: {file_path}")
 
         try:
-            text_content = file_path.read_text(encoding='utf-8')
+            text_content = file_path.read_text(encoding="utf-8")
         except FileNotFoundError:
             logger.error(f"File not found: {file_path}")
             raise
