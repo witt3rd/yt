@@ -126,41 +126,41 @@ uv run --package transcript yt-transcript VIDEO_ID --format json --output transc
 
 ```bash
 # YouTube video summarization
-uv run --package summarize yt-summarize "https://youtube.com/watch?v=VIDEO_ID"
+uv run --package summarize summarize "https://youtube.com/watch?v=VIDEO_ID"
 
 # Text file summarization
-uv run --package summarize yt-summarize document.txt --style detailed
-uv run --package summarize yt-summarize research.md --style bullet_points
+uv run --package summarize summarize document.txt --style detailed
+uv run --package summarize summarize research.md --style bullet_points
 
 # Different summary styles
-uv run --package summarize yt-summarize VIDEO_ID --style key_takeaways
-uv run --package summarize yt-summarize VIDEO_ID --style chapter_breakdown
-uv run --package summarize yt-summarize VIDEO_ID --style questions  # Question-oriented analysis
+uv run --package summarize summarize VIDEO_ID --style key_takeaways
+uv run --package summarize summarize VIDEO_ID --style chapter_breakdown
+uv run --package summarize summarize VIDEO_ID --style questions  # Question-oriented analysis
 
 # Specify AI provider
-uv run --package summarize yt-summarize VIDEO_ID --provider anthropic
+uv run --package summarize summarize VIDEO_ID --provider anthropic
 
 # Save summary to file
-uv run --package summarize yt-summarize VIDEO_ID --style detailed --output summary.txt
+uv run --package summarize summarize VIDEO_ID --style detailed --output summary.txt
 
 # JSON output with metadata
-uv run --package summarize yt-summarize VIDEO_ID --format json --output summary.json
+uv run --package summarize summarize VIDEO_ID --format json --output summary.json
 ```
 
 ### Unix-Style Pipeline Examples
 
 ```bash
 # Extract transcript and pipe to summarizer (future capability)
-uv run --package transcript yt-transcript VIDEO_ID | uv run --package summarize yt-summarize --style brief
+uv run --package transcript yt-transcript VIDEO_ID | uv run --package summarize summarize --style brief
 
 # Combine transcript extraction with text processing
 uv run --package transcript yt-transcript VIDEO_ID --format text --output transcript.txt
-uv run --package summarize yt-summarize transcript.txt --style key_takeaways
+uv run --package summarize summarize transcript.txt --style key_takeaways
 
 # Process multiple videos in sequence
 for video in "video1" "video2" "video3"; do
   uv run --package transcript yt-transcript "$video" --output "${video}_transcript.txt"
-  uv run --package summarize yt-summarize "${video}_transcript.txt" --style brief --output "${video}_summary.txt"
+  uv run --package summarize summarize "${video}_transcript.txt" --style brief --output "${video}_summary.txt"
 done
 ```
 
@@ -238,11 +238,11 @@ The design allows for powerful compositions:
 
 ```bash
 # Future: True pipeline support
-curl "https://example.com/article" | content-extract | yt-summarize --style brief
+curl "https://example.com/article" | content-extract | summarize --style brief
 
 # Current: File-based composition
 yt-transcript VIDEO_ID --output video.txt
-yt-summarize video.txt --style questions --output analysis.txt
+summarize video.txt --style questions --output analysis.txt
 ```
 
 ## API Documentation
