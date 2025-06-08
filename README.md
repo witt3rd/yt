@@ -1,15 +1,28 @@
-# YouTube (YT) Utilities
+# Content Analysis Utilities
 
-A Python 3.13 workspace for YouTube-related utilities including transcript extraction and AI-powered summarization.
+A Python 3.13 workspace for content extraction, analysis, and summarization following Unix philosophy - modular tools that can be composed together to process various forms of content.
+
+## Philosophy
+
+This project embodies Unix principles: **do one thing well** and **compose tools together**. Each module is designed to be a focused utility that can work independently or be combined with others through standard input/output patterns.
 
 ## Features
 
-- **Transcript Extraction**: Extract transcripts from YouTube videos with multiple language support
-- **AI Summarization**: Summarize video content using OpenAI GPT or Anthropic Claude models
+### Current Capabilities ✅
+- **YouTube Transcript Extraction**: Extract transcripts from YouTube videos with multiple language support
+- **Universal Content Summarization**: Summarize any text content using OpenAI GPT or Anthropic Claude models
+  - YouTube videos (via transcript extraction)
+  - Text files (Markdown, plain text, etc.)
+  - Any text content piped through stdin
 - **Multiple Output Formats**: Support for text, JSON, and timed transcript formats
-- **Configurable Styles**: Brief, detailed, bullet-points, key takeaways, and chapter breakdown summaries
-- **CLI Tools**: Easy-to-use command-line interfaces for both transcript extraction and summarization
-- **Modular Design**: Clean workspace structure with shared utilities and independent packages
+- **Configurable Summary Styles**: Brief, detailed, bullet-points, key takeaways, chapter breakdown, and question-oriented analysis
+- **Unix-like CLI Tools**: Composable command-line interfaces that can be piped together
+- **Modular Design**: Independent packages that share common utilities
+
+### Planned Capabilities 🚧
+- **Web Content Extraction**: General web scraping and content extraction using Firecrawl for clean markdown conversion
+- **Enhanced Pipeline Support**: Better stdin/stdout integration for true Unix-style composition
+- **Additional Content Sources**: Support for more input formats and sources
 
 ## Project Structure
 
@@ -37,7 +50,7 @@ yt/
 │           ├── __init__.py
 │           ├── extractor.py    # Core transcript functionality
 │           └── cli.py          # Command-line interface
-└── summarize/                  # YouTube content summarization
+└── summarize/                  # Universal content summarization
     ├── pyproject.toml
     └── src/
         └── summarize/
@@ -56,18 +69,21 @@ yt/
 ### Installation
 
 1. **Clone the repository**:
+
    ```bash
    git clone <repository-url>
    cd yt
    ```
 
 2. **Set up environment variables**:
+
    ```bash
    cp .env.example .env
    # Edit .env with your API keys
    ```
 
 3. **Install dependencies**:
+
    ```bash
    uv sync
    ```
@@ -106,17 +122,20 @@ uv run --package transcript yt-transcript VIDEO_ID --format timed --output trans
 uv run --package transcript yt-transcript VIDEO_ID --format json --output transcript.json
 ```
 
-### Video Summarization
+### Content Summarization
 
 ```bash
-# Basic summarization
+# YouTube video summarization
 uv run --package summarize yt-summarize "https://youtube.com/watch?v=VIDEO_ID"
 
+# Text file summarization
+uv run --package summarize yt-summarize document.txt --style detailed
+uv run --package summarize yt-summarize research.md --style bullet_points
+
 # Different summary styles
-uv run --package summarize yt-summarize VIDEO_ID --style detailed
-uv run --package summarize yt-summarize VIDEO_ID --style bullet_points
 uv run --package summarize yt-summarize VIDEO_ID --style key_takeaways
 uv run --package summarize yt-summarize VIDEO_ID --style chapter_breakdown
+uv run --package summarize yt-summarize VIDEO_ID --style questions  # Question-oriented analysis
 
 # Specify AI provider
 uv run --package summarize yt-summarize VIDEO_ID --provider anthropic
@@ -128,13 +147,31 @@ uv run --package summarize yt-summarize VIDEO_ID --style detailed --output summa
 uv run --package summarize yt-summarize VIDEO_ID --format json --output summary.json
 ```
 
+### Unix-Style Pipeline Examples
+
+```bash
+# Extract transcript and pipe to summarizer (future capability)
+uv run --package transcript yt-transcript VIDEO_ID | uv run --package summarize yt-summarize --style brief
+
+# Combine transcript extraction with text processing
+uv run --package transcript yt-transcript VIDEO_ID --format text --output transcript.txt
+uv run --package summarize yt-summarize transcript.txt --style key_takeaways
+
+# Process multiple videos in sequence
+for video in "video1" "video2" "video3"; do
+  uv run --package transcript yt-transcript "$video" --output "${video}_transcript.txt"
+  uv run --package summarize yt-summarize "${video}_transcript.txt" --style brief --output "${video}_summary.txt"
+done
+```
+
 ### Library Usage
 
 ```python
+from pathlib import Path
 from common.config import Config
 from common.logger import setup_logger
 from transcript import TranscriptExtractor
-from summarize import VideoSummarizer, SummaryStyle
+from summarize import ContentSummarizer, SummaryStyle
 
 # Set up logging
 setup_logger("INFO")
@@ -142,17 +179,29 @@ setup_logger("INFO")
 # Initialize components
 config = Config()
 extractor = TranscriptExtractor(config)
-summarizer = VideoSummarizer(config)
+summarizer = ContentSummarizer(config)
 
-# Extract transcript
+# YouTube video processing
 video_id = extractor.extract_video_id("https://youtube.com/watch?v=VIDEO_ID")
 transcript = extractor.get_transcript(video_id, languages=["en"])
-
-# Generate summary
 summary = summarizer.summarize_transcript(
     transcript,
     style=SummaryStyle.KEY_TAKEAWAYS,
     provider="openai"
+)
+
+# Text file processing
+text_summary = summarizer.summarize_text_file(
+    Path("document.txt"),
+    style=SummaryStyle.DETAILED,
+    provider="anthropic"
+)
+
+# Direct video summarization
+video_summary = summarizer.summarize_video(
+    "VIDEO_ID",
+    style=SummaryStyle.QUESTIONS,
+    languages=["en"]
 )
 
 print(summary)
@@ -179,30 +228,50 @@ This project follows Python 3.13 best practices:
 
 ### Adding New Features
 
-1. **Extend existing packages**: Add new methods to `TranscriptExtractor` or `VideoSummarizer`
-2. **Create new packages**: Follow the same structure for additional YouTube utilities
+1. **Extend existing packages**: Add new methods to `TranscriptExtractor` or `ContentSummarizer`
+2. **Create new packages**: Follow the same structure for additional content utilities (e.g., web scraping)
 3. **Shared utilities**: Add common functionality to the `common` package
+
+### Unix Philosophy in Practice
+
+The design allows for powerful compositions:
+
+```bash
+# Future: True pipeline support
+curl "https://example.com/article" | content-extract | yt-summarize --style brief
+
+# Current: File-based composition
+yt-transcript VIDEO_ID --output video.txt
+yt-summarize video.txt --style questions --output analysis.txt
+```
 
 ## API Documentation
 
 ### Core Classes
 
 - **`Config`**: Centralized configuration management with environment variable support
-- **`TranscriptExtractor`**: YouTube transcript extraction with language detection
-- **`VideoSummarizer`**: AI-powered summarization with multiple providers and styles
-- **`VideoInfo`**: Video metadata structure
-- **`TranscriptSegment`**: Individual transcript segment with timing
+- **`TranscriptExtractor`**: YouTube transcript extraction with language detection and URL parsing
+- **`ContentSummarizer`**: Universal content summarization with multiple providers, styles, and input sources
+- **`SummaryStyle`**: Enumeration of available summary styles (brief, detailed, bullet_points, key_takeaways, chapter_breakdown, questions)
+- **`VideoInfo`**: Video metadata structure with validation
+- **`TranscriptSegment`**: Individual transcript segment with timing and confidence data
 
-### Supported Formats
+### Supported Input Sources
 
-- **Input**: YouTube URLs, video IDs
-- **Transcript Output**: Plain text, timed text, JSON
-- **Summary Output**: Plain text, JSON with metadata
-- **Languages**: Auto-detection or manual specification
+- **YouTube**: URLs, video IDs with automatic extraction
+- **Text Files**: Markdown, plain text, any UTF-8 encoded files
+- **Future**: Web pages via Firecrawl, stdin for pipeline integration
+
+### Output Formats
+
+- **Transcript Output**: Plain text, timed text with timestamps, structured JSON
+- **Summary Output**: Plain text, JSON with metadata and analysis details
+- **Languages**: Auto-detection, manual specification, multi-language preference lists
 
 ## Dependencies
 
 ### Core Dependencies
+
 - `loguru` - Modern logging
 - `python-dotenv` - Environment variable management
 - `click` - Command-line interfaces
@@ -211,6 +280,7 @@ This project follows Python 3.13 best practices:
 - `anthropic` - Anthropic API client
 
 ### Development
+
 - `python>=3.13` - Modern Python features
 - `uv` - Fast Python package manager
 
