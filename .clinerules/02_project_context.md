@@ -31,10 +31,16 @@ This is a Python 3.13 workspace for content extraction, analysis, and summarizat
 ## Current Capabilities
 
 - YouTube transcript extraction with multiple language support
-- Universal content summarization (YouTube videos, text files, stdin)
+- Universal content summarization (YouTube videos, text files)
 - Multiple output formats: text, JSON, timed transcript
 - Configurable summary styles and AI providers
 - Unix-like CLI tools that can be composed together
+- **Auto-save behavior**: Summaries automatically save to `.md` files by default
+
+## Planned Capabilities
+
+- Web content extraction using Firecrawl for clean markdown conversion
+- Additional content sources and input formats
 
 ## Environment Configuration
 
@@ -57,12 +63,18 @@ Required environment variables in `.env`:
 # Extract YouTube transcript
 uv run --package transcript yt-transcript "VIDEO_ID" --languages en,es
 
-# Summarize content
+# Summarize content (auto-saves to VIDEO_ID.md)
 uv run --package summarize summarize "VIDEO_ID" --style key_takeaways
+
+# Summarize text file (auto-saves to filename.md)
+uv run --package summarize summarize document.txt --style questions
 
 # Pipeline composition
 uv run --package transcript yt-transcript VIDEO_ID --output transcript.txt
 uv run --package summarize summarize transcript.txt --style questions
+
+# Override auto-save with explicit output
+uv run --package summarize summarize VIDEO_ID --output custom_summary.txt
 ```
 
 ## Project Structure

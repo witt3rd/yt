@@ -1,10 +1,10 @@
 # Content Analysis Utilities
 
-A Python 3.13 workspace for content extraction, analysis, and summarization following Unix philosophy - modular tools that can be composed together to process various forms of content.
+A Python 3.13 workspace for content extraction, analysis, and summarization with modular tools for processing various forms of content.
 
 ## Philosophy
 
-This project embodies Unix principles: **do one thing well** and **compose tools together**. Each module is designed to be a focused utility that can work independently or be combined with others through standard input/output patterns.
+This project follows the principle of **do one thing well**. Each module is designed to be a focused utility that can work independently.
 
 ## Features
 
@@ -14,16 +14,14 @@ This project embodies Unix principles: **do one thing well** and **compose tools
 - **Universal Content Summarization**: Summarize any text content using OpenAI GPT or Anthropic Claude models
   - YouTube videos (via transcript extraction)
   - Text files (Markdown, plain text, etc.)
-  - Any text content piped through stdin
 - **Multiple Output Formats**: Support for text, JSON, and timed transcript formats
 - **Configurable Summary Styles**: Brief, detailed, bullet-points, key takeaways, chapter breakdown, and question-oriented analysis
-- **Unix-like CLI Tools**: Composable command-line interfaces that can be piped together
+- **CLI Tools**: Command-line interfaces for transcript extraction and content summarization
 - **Modular Design**: Independent packages that share common utilities
 
 ### Planned Capabilities 🚧
 
 - **Web Content Extraction**: General web scraping and content extraction using Firecrawl for clean markdown conversion
-- **Enhanced Pipeline Support**: Better stdin/stdout integration for true Unix-style composition
 - **Additional Content Sources**: Support for more input formats and sources
 
 ## Project Structure
@@ -154,22 +152,6 @@ uv run --package summarize summarize VIDEO_ID --style detailed --output custom_s
 uv run --package summarize summarize VIDEO_ID --format json
 ```
 
-### Unix-Style Pipeline Examples
-
-```bash
-# Extract transcript and pipe to summarizer (future capability)
-uv run --package transcript yt-transcript VIDEO_ID | uv run --package summarize summarize --style brief
-
-# Combine transcript extraction with text processing
-uv run --package transcript yt-transcript VIDEO_ID --format text --output transcript.txt
-uv run --package summarize summarize transcript.txt --style key_takeaways  # auto-saves to transcript.md
-
-# Process multiple videos in sequence (leveraging auto-save behavior)
-for video in "video1" "video2" "video3"; do
-  uv run --package transcript yt-transcript "$video" --output "${video}_transcript.txt"
-  uv run --package summarize summarize "${video}_transcript.txt" --style brief  # auto-saves to ${video}_transcript.md
-done
-```
 
 ### Library Usage
 
@@ -239,18 +221,6 @@ This project follows Python 3.13 best practices:
 2. **Create new packages**: Follow the same structure for additional content utilities (e.g., web scraping)
 3. **Shared utilities**: Add common functionality to the `common` package
 
-### Unix Philosophy in Practice
-
-The design allows for powerful compositions:
-
-```bash
-# Future: True pipeline support
-curl "https://example.com/article" | content-extract | summarize --style brief
-
-# Current: File-based composition
-yt-transcript VIDEO_ID --output video.txt
-summarize video.txt --style questions --output analysis.txt
-```
 
 ## API Documentation
 
@@ -267,7 +237,7 @@ summarize video.txt --style questions --output analysis.txt
 
 - **YouTube**: URLs, video IDs with automatic extraction
 - **Text Files**: Markdown, plain text, any UTF-8 encoded files
-- **Future**: Web pages via Firecrawl, stdin for pipeline integration
+- **Future**: Web pages via Firecrawl
 
 ### Output Formats
 
