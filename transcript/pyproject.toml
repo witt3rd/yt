@@ -7,6 +7,8 @@ dependencies = [
     "common",
     "youtube-transcript-api>=0.6.2",
     "click>=8.1.7",
+    "google-api-python-client>=2.0.0",
+    "openai>=1.0.0",
 ]
 
 [tool.uv.sources]

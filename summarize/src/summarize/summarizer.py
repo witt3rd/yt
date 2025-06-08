@@ -14,7 +14,7 @@ from loguru import logger
 
 from common.config import Config
 from common.types import TranscriptData, TranscriptSegment
-from transcript import TranscriptExtractor
+from transcript import TranscriptExtractor, MetadataGenerator, YouTubeAPIError, OpenAIError
 
 
 class SummaryStyle(Enum):
@@ -76,6 +76,9 @@ class ContentSummarizer:
         self.transcript_extractor = transcript_extractor or TranscriptExtractor(
             self.config
         )
+
+        # Initialize metadata generator for enhanced summaries
+        self.metadata_generator = MetadataGenerator(self.config)
 
         # Initialize AI clients based on available API keys
         self.openai_client = None
@@ -452,6 +455,111 @@ Transcript:
 
         logger.info("Content summarization completed successfully")
         return summary
+
+    def summarize_video_with_metadata(
+        self,
+        url_or_id: str,
+        style: SummaryStyle = SummaryStyle.BRIEF,
+        provider: str | None = None,
+        languages: list[str] | None = None,
+        disable_ai_generation: bool = False,
+    ) -> tuple[str, str]:
+        """Summarize a YouTube video with enhanced metadata and frontmatter.
+
+        Uses yt-transcript's existing markdown generation to get full metadata,
+        then replaces transcript content with summary content.
+
+        Parameters
+        ----------
+        url_or_id : str
+            YouTube URL or video ID.
+        style : SummaryStyle, default SummaryStyle.BRIEF
+            Desired summary style.
+        provider : str, optional
+            AI provider to use ("openai" or "anthropic").
+        languages : list[str], optional
+            Preferred transcript languages.
+        disable_ai_generation : bool, default False
+            Disable AI-powered filename and tag generation.
+
+        Returns
+        -------
+        tuple[str, str]
+            Enhanced markdown content with frontmatter and suggested filename.
+
+        Raises
+        ------
+        Exception
+            If transcript extraction or summarization fails.
+
+        Examples
+        --------
+        >>> summarizer = ContentSummarizer()
+        >>> content, filename = summarizer.summarize_video_with_metadata(
+        ...     "dQw4w9WgXcQ",
+        ...     style=SummaryStyle.KEY_TAKEAWAYS
+        ... )
+        >>> filename.endswith(".md")
+        True
+        >>> "---" in content
+        True
+        """
+        # Extract video ID
+        video_id = self.transcript_extractor.extract_video_id(url_or_id)
+        logger.info(f"Summarizing video with metadata: {video_id}")
+
+        try:
+            # Get transcript
+            transcript = self.transcript_extractor.get_transcript(
+                video_id, languages=languages
+            )
+
+            # Generate enhanced markdown using existing yt-transcript functionality
+            try:
+                video_metadata = self.metadata_generator.fetch_video_metadata(video_id)
+                logger.info(f"Fetched metadata for: {video_metadata.title}")
+
+                # Generate AI content if enabled
+                ai_content = None
+                if not disable_ai_generation:
+                    try:
+                        ai_content = self.metadata_generator.generate_ai_content(video_metadata)
+                        logger.info("Generated AI-powered metadata")
+                    except OpenAIError as e:
+                        logger.warning(f"Failed to generate AI content: {e}")
+                        logger.info("Proceeding with basic metadata")
+
+                # Generate transcript text and summary
+                transcript_text = self.transcript_extractor.transcript_to_text(transcript)
+                summary = self.summarize_transcript(transcript, style, provider)
+
+                # Generate complete markdown with frontmatter + summary instead of transcript
+                enhanced_markdown = self.metadata_generator.generate_markdown_content(
+                    video_metadata, summary, ai_content
+                )
+
+                # Get suggested filename
+                suggested_filename = self.metadata_generator.get_suggested_filename(
+                    video_metadata, ai_content
+                )
+
+                logger.info(f"Generated enhanced summary with filename: {suggested_filename}")
+                return enhanced_markdown, suggested_filename
+
+            except YouTubeAPIError as e:
+                logger.warning(f"Failed to fetch video metadata: {e}")
+                logger.info("Falling back to basic summary without metadata")
+
+                # Fallback: generate plain summary and use basic filename
+                summary = self.summarize_transcript(transcript, style, provider)
+                basic_filename = f"{video_id}.md"
+                return summary, basic_filename
+
+        except Exception as e:
+            logger.error(f"Failed to summarize video with metadata: {e}")
+            raise
+
+        logger.info("Content summarization with metadata completed successfully")
 
     def text_to_transcript(self, text: str) -> TranscriptData:
         """Convert plain text to transcript format."""

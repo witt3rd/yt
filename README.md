@@ -11,10 +11,12 @@ This project follows the principle of **do one thing well**. Each module is desi
 ### Current Capabilities ✅
 
 - **YouTube Transcript Extraction**: Extract transcripts from YouTube videos with multiple language support
+- **Enhanced YouTube Metadata**: AI-powered filename generation and YAML frontmatter for Obsidian compatibility
 - **Universal Content Summarization**: Summarize any text content using OpenAI GPT or Anthropic Claude models
-  - YouTube videos (via transcript extraction)
+  - YouTube videos with rich metadata and frontmatter
   - Text files (Markdown, plain text, etc.)
-- **Multiple Output Formats**: Support for text, JSON, and timed transcript formats
+- **Multiple Output Formats**: Support for text, JSON, timed transcript, and enhanced markdown formats
+- **Intelligent File Naming**: AI-generated descriptive filenames for better organization
 - **Configurable Summary Styles**: Brief, detailed, bullet-points, key takeaways, chapter breakdown, and question-oriented analysis
 - **CLI Tools**: Command-line interfaces for transcript extraction and content summarization
 - **Modular Design**: Independent packages that share common utilities
@@ -122,34 +124,81 @@ uv run --package transcript yt-transcript VIDEO_ID --format timed --output trans
 uv run --package transcript yt-transcript VIDEO_ID --format json --output transcript.json
 ```
 
-### Content Summarization
+### Enhanced YouTube Transcript Extraction
 
-**Note**: By default, summaries are automatically saved to files with `.md` extension:
-- YouTube videos: saved as `video_id.md`
-- Text files: saved with same name but `.md` extension
-- Use `--output` to specify a custom filename
+Extract transcripts with rich metadata and AI-powered enhancements:
 
 ```bash
-# YouTube video summarization (auto-saves to VIDEO_ID.md)
-uv run --package summarize summarize "https://youtube.com/watch?v=VIDEO_ID"
+# Basic transcript with enhanced markdown and AI filename
+uv run --package transcript yt-transcript "https://youtube.com/watch?v=dQw4w9WgXcQ" --format markdown
+# Creates: Rick-Astley-Never-Gonna-Give-You-Up-RickAstley.md
+
+# Transcript with basic metadata only (no AI generation)
+uv run --package transcript yt-transcript VIDEO_ID --format markdown --disable-ai-generation
+
+# Traditional formats still work
+uv run --package transcript yt-transcript VIDEO_ID --format text
+uv run --package transcript yt-transcript VIDEO_ID --format json
+```
+
+**Enhanced Markdown Output Example:**
+```markdown
+---
+title: Rick Astley - Never Gonna Give You Up (Official Music Video)
+source: YouTube
+channel: RickAstleyVEVO
+url: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+date: 2009-10-25
+authors: Rick Astley
+tags: [music, pop, 80s, rickroll, official-video]
+---
+
+♪ We're no strangers to love ♪ ♪ You know the rules and so do I ♪...
+```
+
+### Content Summarization
+
+**Enhanced YouTube Processing**: For YouTube videos, summaries automatically include rich metadata and AI-generated filenames:
+
+```bash
+# YouTube video summarization with enhanced metadata
+uv run --package summarize summarize "https://youtube.com/watch?v=dQw4w9WgXcQ" --style brief
+# Creates: Rick-Astley-Never-Gonna-Give-You-Up-RickAstley.md (with frontmatter + summary)
 
 # Text file summarization (auto-saves to document.md, research.md)
 uv run --package summarize summarize document.txt --style detailed
 uv run --package summarize summarize research.md --style bullet_points
 
-# Different summary styles (auto-saves to VIDEO_ID.md)
+# Different summary styles with enhanced metadata
 uv run --package summarize summarize VIDEO_ID --style key_takeaways
 uv run --package summarize summarize VIDEO_ID --style chapter_breakdown
 uv run --package summarize summarize VIDEO_ID --style questions  # Question-oriented analysis
 
-# Specify AI provider (auto-saves to VIDEO_ID.md)
+# Specify AI provider
 uv run --package summarize summarize VIDEO_ID --provider anthropic
 
-# Explicit output file (overrides default behavior)
-uv run --package summarize summarize VIDEO_ID --style detailed --output custom_summary.txt
+# Explicit output file (overrides AI-generated filename)
+uv run --package summarize summarize VIDEO_ID --style detailed --output custom_summary.md
 
-# JSON output with metadata (auto-saves to VIDEO_ID.md in JSON format)
+# JSON output with metadata extraction
 uv run --package summarize summarize VIDEO_ID --format json
+```
+
+**Enhanced Summary Output Example:**
+```markdown
+---
+title: Rick Astley - Never Gonna Give You Up (Official Music Video)
+source: YouTube
+channel: RickAstleyVEVO
+url: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+date: 2009-10-25
+authors: Rick Astley
+tags: [music, pop, 80s, rickroll, official-video]
+---
+
+## Brief Summary
+
+This is the official music video for Rick Astley's 1987 hit single "Never Gonna Give You Up," which became a cultural phenomenon as the centerpiece of the "Rickrolling" internet meme. The song features Astley's distinctive deep voice delivering promises of unwavering commitment and loyalty in a relationship.
 ```
 
 

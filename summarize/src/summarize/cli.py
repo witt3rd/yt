@@ -159,6 +159,7 @@ def main(
                 )
                 # For file input, we don't have a content_id
                 content_id = None
+                output_content = summary
             else:
                 # Assume it's a YouTube URL or video ID
                 try:
@@ -166,12 +167,24 @@ def main(
                         input_source
                     )
                     logger.info(f"Processing video ID: {content_id}")
-                    summary = summarizer.summarize_video(
+
+                    # Use enhanced metadata functionality for YouTube videos
+                    enhanced_markdown, suggested_filename = summarizer.summarize_video_with_metadata(
                         input_source,
                         style=summary_style,
                         provider=provider,
                         languages=language_list,
                     )
+
+                    # Update output filename if not explicitly provided
+                    if output is None or output == Path(f"{content_id}.md"):
+                        output = Path(suggested_filename)
+                        logger.info(f"Using enhanced filename: {output}")
+
+                    # For YouTube videos, we already have the enhanced markdown
+                    output_content = enhanced_markdown
+                    summary = enhanced_markdown  # For compatibility with existing logic
+
                 except ValueError as e:
                     logger.error(
                         f"Invalid input: not a valid file path or YouTube URL/ID: {e}"
@@ -183,20 +196,27 @@ def main(
             logger.error(f"Failed to generate summary: {e}")
             sys.exit(1)
 
-        # Format output
+        # Format output for JSON if requested
         if output_format.lower() == "json":
+            # For JSON format, extract just the summary text from enhanced markdown if needed
+            summary_text = summary
+            if isinstance(summary, str) and summary.startswith("---"):
+                # If it's enhanced markdown, extract just the content after frontmatter
+                parts = summary.split("---", 2)
+                if len(parts) >= 3:
+                    summary_text = parts[2].strip()
+
             output_content = json.dumps(
                 {
                     "content_id": content_id,
                     "style": summary_style.value,
                     "provider": provider,
-                    "summary": summary,
+                    "summary": summary_text,
                     "languages": language_list,
                 },
                 indent=2,
             )
-        else:  # text format
-            output_content = summary
+        # For text format, output_content is already set correctly above
 
         # Write output (output is always defined now due to default behavior)
         try:
