@@ -23,7 +23,7 @@ from .summarizer import ContentSummarizer, SummaryStyle
     "--output",
     "-o",
     type=click.Path(path_type=Path),
-    help="Output file path. If not provided, prints to stdout.",
+    help="Output file path. If not provided, defaults to input name with .md extension (e.g., video_id.md).",
 )
 @click.option(
     "--style",
@@ -76,18 +76,28 @@ def main(
 
     INPUT_SOURCE can be a YouTube URL, video ID, or path to a text file.
 
+    By default, output files are automatically created with .md extension:
+    - Video IDs: saved as "video_id.md"
+    - Text files: saved with same name but .md extension
+
     Examples:
 
+        # Auto-saves to dQw4w9WgXcQ.md
         summarize "https://youtube.com/watch?v=dQw4w9WgXcQ"
 
+        # Auto-saves to dQw4w9WgXcQ.md with detailed summary
         summarize dQw4w9WgXcQ --style detailed --provider anthropic
 
-        summarize transcript.txt --style bullet_points --format json --output summary.json
+        # Auto-saves to transcript.md
+        summarize transcript.txt --style bullet_points
 
-        summarize dQw4w9WgXcQ --languages en,es --style key_takeaways
+        # Explicit output file (overrides default behavior)
+        summarize dQw4w9WgXcQ --style questions --output custom_summary.json --format json
 
+        # Auto-saves to alita.md with questions style
         summarize alita.txt --style questions --provider openai
 
+        # Auto-saves to document.md with chapter breakdown
         summarize document.md --style chapter_breakdown --provider anthropic
     """
     # Set up logging
@@ -115,6 +125,24 @@ def main(
         except ValueError:
             logger.error(f"Invalid style: {style}")
             sys.exit(1)
+
+        # Generate default output filename if none provided
+        if output is None:
+            # Check if input is a file path
+            input_path = Path(input_source)
+            if input_path.exists() and input_path.is_file():
+                # For file input, use same name with .md extension
+                output = input_path.with_suffix('.md')
+            else:
+                # For YouTube URL/ID, extract video ID and use it as filename
+                try:
+                    video_id = summarizer.transcript_extractor.extract_video_id(input_source)
+                    output = Path(f"{video_id}.md")
+                except ValueError:
+                    # If we can't extract video ID, use a generic name
+                    output = Path("summary.md")
+
+            logger.info(f"No output file specified, using default: {output}")
 
         # Detect input type and generate summary
         try:
@@ -170,17 +198,14 @@ def main(
         else:  # text format
             output_content = summary
 
-        # Write output
-        if output:
-            try:
-                output.parent.mkdir(parents=True, exist_ok=True)
-                _ = output.write_text(output_content, encoding="utf-8")
-                logger.info(f"Summary saved to: {output}")
-            except Exception as e:
-                logger.error(f"Failed to write output file: {e}")
-                sys.exit(1)
-        else:
-            print(output_content)
+        # Write output (output is always defined now due to default behavior)
+        try:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            _ = output.write_text(output_content, encoding="utf-8")
+            logger.info(f"Summary saved to: {output}")
+        except Exception as e:
+            logger.error(f"Failed to write output file: {e}")
+            sys.exit(1)
 
         logger.info("Content summarization completed successfully")
 

@@ -9,6 +9,7 @@ This project embodies Unix principles: **do one thing well** and **compose tools
 ## Features
 
 ### Current Capabilities ✅
+
 - **YouTube Transcript Extraction**: Extract transcripts from YouTube videos with multiple language support
 - **Universal Content Summarization**: Summarize any text content using OpenAI GPT or Anthropic Claude models
   - YouTube videos (via transcript extraction)
@@ -20,6 +21,7 @@ This project embodies Unix principles: **do one thing well** and **compose tools
 - **Modular Design**: Independent packages that share common utilities
 
 ### Planned Capabilities 🚧
+
 - **Web Content Extraction**: General web scraping and content extraction using Firecrawl for clean markdown conversion
 - **Enhanced Pipeline Support**: Better stdin/stdout integration for true Unix-style composition
 - **Additional Content Sources**: Support for more input formats and sources
@@ -124,27 +126,32 @@ uv run --package transcript yt-transcript VIDEO_ID --format json --output transc
 
 ### Content Summarization
 
+**Note**: By default, summaries are automatically saved to files with `.md` extension:
+- YouTube videos: saved as `video_id.md`
+- Text files: saved with same name but `.md` extension
+- Use `--output` to specify a custom filename
+
 ```bash
-# YouTube video summarization
+# YouTube video summarization (auto-saves to VIDEO_ID.md)
 uv run --package summarize summarize "https://youtube.com/watch?v=VIDEO_ID"
 
-# Text file summarization
+# Text file summarization (auto-saves to document.md, research.md)
 uv run --package summarize summarize document.txt --style detailed
 uv run --package summarize summarize research.md --style bullet_points
 
-# Different summary styles
+# Different summary styles (auto-saves to VIDEO_ID.md)
 uv run --package summarize summarize VIDEO_ID --style key_takeaways
 uv run --package summarize summarize VIDEO_ID --style chapter_breakdown
 uv run --package summarize summarize VIDEO_ID --style questions  # Question-oriented analysis
 
-# Specify AI provider
+# Specify AI provider (auto-saves to VIDEO_ID.md)
 uv run --package summarize summarize VIDEO_ID --provider anthropic
 
-# Save summary to file
-uv run --package summarize summarize VIDEO_ID --style detailed --output summary.txt
+# Explicit output file (overrides default behavior)
+uv run --package summarize summarize VIDEO_ID --style detailed --output custom_summary.txt
 
-# JSON output with metadata
-uv run --package summarize summarize VIDEO_ID --format json --output summary.json
+# JSON output with metadata (auto-saves to VIDEO_ID.md in JSON format)
+uv run --package summarize summarize VIDEO_ID --format json
 ```
 
 ### Unix-Style Pipeline Examples
@@ -155,12 +162,12 @@ uv run --package transcript yt-transcript VIDEO_ID | uv run --package summarize 
 
 # Combine transcript extraction with text processing
 uv run --package transcript yt-transcript VIDEO_ID --format text --output transcript.txt
-uv run --package summarize summarize transcript.txt --style key_takeaways
+uv run --package summarize summarize transcript.txt --style key_takeaways  # auto-saves to transcript.md
 
-# Process multiple videos in sequence
+# Process multiple videos in sequence (leveraging auto-save behavior)
 for video in "video1" "video2" "video3"; do
   uv run --package transcript yt-transcript "$video" --output "${video}_transcript.txt"
-  uv run --package summarize summarize "${video}_transcript.txt" --style brief --output "${video}_summary.txt"
+  uv run --package summarize summarize "${video}_transcript.txt" --style brief  # auto-saves to ${video}_transcript.md
 done
 ```
 
