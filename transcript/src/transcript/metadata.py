@@ -7,7 +7,6 @@ for Obsidian-compatible markdown output.
 
 import os
 import re
-from typing import Optional
 from dataclasses import dataclass
 
 from googleapiclient.discovery import build
@@ -294,7 +293,7 @@ class MetadataGenerator:
         Returns
         -------
         list[str]
-            List of relevant tags.
+            List of relevant tags without "#" prefixes.
         """
         if not self._openai_client:
             raise OpenAIError("OpenAI client not initialized")
@@ -305,7 +304,8 @@ class MetadataGenerator:
         prompt = (
             f"Based on the YouTube video title '{title}' and description "
             f"'{description_excerpt}', suggest relevant tags for an Obsidian note. "
-            "Provide a list of tags separated by commas. Keep tags concise and relevant."
+            "Provide a list of tags separated by commas. Keep tags concise and relevant. "
+            "IMPORTANT: Do NOT include '#' prefixes - just the tag names themselves."
         )
 
         response = self._openai_client.chat.completions.create(
@@ -323,7 +323,9 @@ class MetadataGenerator:
             raise OpenAIError("OpenAI returned empty content for tag generation")
 
         tags_text = content.strip()
-        tags = [tag.strip() for tag in tags_text.split(",") if tag.strip()]
+        # Split by comma and sanitize each tag to remove any "#" prefixes
+        tags = [tag.strip().lstrip('#').strip() for tag in tags_text.split(",")
+                if tag.strip().lstrip('#').strip()]
         return tags
 
     def _generate_authors(self, description: str) -> list[str]:
@@ -400,7 +402,7 @@ class MetadataGenerator:
     def construct_frontmatter(
         self,
         metadata: VideoMetadata,
-        ai_content: Optional[AIGeneratedContent] = None
+        ai_content: AIGeneratedContent | None = None
     ) -> str:
         """Construct YAML frontmatter for Obsidian note.
 
@@ -436,7 +438,9 @@ class MetadataGenerator:
             frontmatter_lines.append(f"authors: {', '.join(ai_content.authors)}")
 
         if ai_content and ai_content.tags:
-            frontmatter_lines.append(f"tags: [{', '.join(ai_content.tags)}]")
+            # Sanitize tags to remove any "#" prefixes that break markdown rendering
+            sanitized_tags = [tag.lstrip('#').strip() for tag in ai_content.tags]
+            frontmatter_lines.append(f"tags: [{', '.join(sanitized_tags)}]")
 
         frontmatter_lines.append("---")
         return "\n".join(frontmatter_lines)
@@ -445,7 +449,7 @@ class MetadataGenerator:
         self,
         metadata: VideoMetadata,
         transcript_content: str,
-        ai_content: Optional[AIGeneratedContent] = None
+        ai_content: AIGeneratedContent | None = None
     ) -> str:
         """Generate complete markdown content with frontmatter and transcript.
 
@@ -476,7 +480,7 @@ class MetadataGenerator:
     def get_suggested_filename(
         self,
         metadata: VideoMetadata,
-        ai_content: Optional[AIGeneratedContent] = None
+        ai_content: AIGeneratedContent | None = None
     ) -> str:
         """Get suggested filename for the markdown file.
 

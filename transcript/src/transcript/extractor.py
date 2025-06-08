@@ -7,6 +7,7 @@ output and error handling.
 
 import re
 from urllib.parse import urlparse, parse_qs
+import xml.etree.ElementTree as ET
 
 from youtube_transcript_api._api import YouTubeTranscriptApi
 from youtube_transcript_api._transcripts import TranscriptList, FetchedTranscript
@@ -16,9 +17,95 @@ from youtube_transcript_api._errors import (
     VideoUnavailable,
 )
 from loguru import logger
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    after_log,
+    retry_if_exception,
+)
 
 from common.types import VideoInfo, TranscriptSegment, TranscriptData
 from common.config import Config
+
+
+def _should_retry_transcript_extraction(exception: BaseException) -> bool:
+    """Determine if transcript extraction should be retried.
+
+    Parameters
+    ----------
+    exception : BaseException
+        The exception that occurred during transcript extraction.
+
+    Returns
+    -------
+    bool
+        True if the operation should be retried, False otherwise.
+
+    Notes
+    -----
+    This function identifies transient errors that may resolve with retry:
+    - XML parsing errors (malformed responses)
+    - Connection errors
+    - Timeout errors
+    - Server errors (5xx responses)
+
+    Does not retry for permanent errors like:
+    - TranscriptsDisabled
+    - NoTranscriptFound
+    - VideoUnavailable
+    """
+    # Don't retry permanent errors from youtube-transcript-api
+    if isinstance(exception, (TranscriptsDisabled, NoTranscriptFound, VideoUnavailable)):
+        return False
+
+    # Retry XML parsing errors (the main issue we're addressing)
+    if isinstance(exception, ET.ParseError):
+        return True
+
+    # Check for XML parsing errors in the exception message
+    error_msg = str(exception).lower()
+    xml_error_indicators = [
+        "no element found",
+        "not well-formed",
+        "xml parse error",
+        "malformed xml",
+        "empty document",
+    ]
+
+    if any(indicator in error_msg for indicator in xml_error_indicators):
+        return True
+
+    # Retry on network-related errors
+    network_error_indicators = [
+        "connection error",
+        "timeout",
+        "network",
+        "503",  # Service unavailable
+        "502",  # Bad gateway
+        "500",  # Internal server error
+    ]
+
+    if any(indicator in error_msg for indicator in network_error_indicators):
+        return True
+
+    return False
+
+
+def _log_retry_attempt(retry_state) -> None:
+    """Log retry attempts with context information.
+
+    Parameters
+    ----------
+    retry_state : RetryCallState
+        The current retry state from tenacity.
+    """
+    if retry_state.attempt_number > 1:
+        logger.info(
+            f"Retrying transcript extraction (attempt {retry_state.attempt_number}) "
+            f"after {retry_state.next_action}: {retry_state.outcome.exception()}"
+        )
 
 
 class TranscriptExtractor:
@@ -105,6 +192,12 @@ class TranscriptExtractor:
 
         raise ValueError(f"Unable to extract valid YouTube video ID from: {url_or_id}")
 
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=1, min=5, max=30),
+        retry=retry_if_exception(_should_retry_transcript_extraction),
+        after=_log_retry_attempt,
+    )
     def get_transcript(
         self,
         video_id: str,
