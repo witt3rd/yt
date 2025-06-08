@@ -1,0 +1,28 @@
+[project]
+name = "pdf"
+version = "0.1.0"
+description = "PDF to markdown conversion utilities using PyMuPDF with Marker fallback"
+requires-python = ">=3.13"
+dependencies = [
+    "common",
+    "pymupdf>=1.24.0",
+    "requests>=2.31.0",
+    "click>=8.1.7",
+    "tenacity>=9.0.0",
+    "validators>=0.22.0",
+]
+
+[project.optional-dependencies]
+marker = [
+    "marker-pdf>=0.3.2",
+]
+
+[tool.uv.sources]
+common = { workspace = true }
+
+[project.scripts]
+pdf = "pdf.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

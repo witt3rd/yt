@@ -14,6 +14,7 @@ from loguru import logger
 
 from common.config import Config
 from common.logger import setup_logger
+from common.url_utils import is_remote_pdf_url
 from .summarizer import ContentSummarizer, SummaryStyle
 
 
@@ -74,11 +75,12 @@ def main(
 ):
     """Summarize various types of content using AI.
 
-    INPUT_SOURCE can be a YouTube URL, video ID, or path to a text file.
+    INPUT_SOURCE can be a YouTube URL, video ID, PDF file/URL, or path to a text file.
 
     By default, output files are automatically created with .md extension:
     - Video IDs: saved as "video_id.md"
     - Text files: saved with same name but .md extension
+    - PDFs: saved with AI-generated filename based on content
 
     Examples:
 
@@ -91,11 +93,14 @@ def main(
         # Auto-saves to transcript.md
         summarize transcript.txt --style bullet_points
 
+        # Auto-saves with AI-generated filename for arXiv paper
+        summarize "https://arxiv.org/pdf/2506.05296" --style key_takeaways
+
+        # Auto-saves with AI-generated filename for local PDF
+        summarize paper.pdf --style questions --provider openai
+
         # Explicit output file (overrides default behavior)
         summarize dQw4w9WgXcQ --style questions --output custom_summary.json --format json
-
-        # Auto-saves to alita.md with questions style
-        summarize alita.txt --style questions --provider openai
 
         # Auto-saves to document.md with chapter breakdown
         summarize document.md --style chapter_breakdown --provider anthropic
@@ -158,29 +163,15 @@ def main(
             # Check if input is a file path
             input_path = Path(input_source)
             if input_path.exists() and input_path.is_file():
-                logger.info(f"Processing text file: {input_source}")
-                summary = summarizer.summarize_text_file(
-                    input_path, style=summary_style, provider=provider
-                )
-                # For file input, we don't have a content_id
-                content_id = None
-                output_content = summary
-            else:
-                # Check if it's a web URL (starts with http:// or https://)
-                if input_source.startswith(('http://', 'https://')):
-                    # Check if it's a YouTube URL first
+                # Check if it's a PDF file
+                if input_path.suffix.lower() == '.pdf':
+                    logger.info(f"Processing PDF file: {input_source}")
                     try:
-                        content_id = summarizer.transcript_extractor.extract_video_id(
-                            input_source
-                        )
-                        logger.info(f"Processing YouTube video: {content_id}")
-
-                        # Use enhanced metadata functionality for YouTube videos
-                        enhanced_markdown, suggested_filename = summarizer.summarize_video_with_metadata(
+                        # Use enhanced metadata functionality for PDF files
+                        enhanced_markdown, suggested_filename = summarizer.summarize_pdf_with_metadata(
                             input_source,
                             style=summary_style,
                             provider=provider,
-                            languages=language_list,
                         )
 
                         # Update output filename if not explicitly provided
@@ -188,16 +179,31 @@ def main(
                             output = Path(suggested_filename)
                             logger.info(f"Using enhanced filename: {output}")
 
-                        # For YouTube videos, we already have the enhanced markdown
+                        # For PDF files, we already have the enhanced markdown
                         output_content = enhanced_markdown
                         summary = enhanced_markdown  # For compatibility with existing logic
+                        content_id = None  # PDF files don't have a specific content_id
 
-                    except ValueError:
-                        # Not a YouTube URL, treat as regular web URL
-                        logger.info(f"Processing web URL: {input_source}")
+                    except Exception as e:
+                        logger.error(f"Failed to process PDF file: {e}")
+                        sys.exit(1)
+                else:
+                    logger.info(f"Processing text file: {input_source}")
+                    summary = summarizer.summarize_text_file(
+                        input_path, style=summary_style, provider=provider
+                    )
+                    # For file input, we don't have a content_id
+                    content_id = None
+                    output_content = summary
+            else:
+                # Check if it's a web URL (starts with http:// or https://)
+                if input_source.startswith(('http://', 'https://')):
+                    # Check if it's a PDF URL first using intelligent detection
+                    if is_remote_pdf_url(input_source):
+                        logger.info(f"Processing PDF URL: {input_source}")
                         try:
-                            # Use enhanced metadata functionality for web URLs
-                            enhanced_markdown, suggested_filename = summarizer.summarize_url_with_metadata(
+                            # Use enhanced metadata functionality for PDF URLs
+                            enhanced_markdown, suggested_filename = summarizer.summarize_pdf_with_metadata(
                                 input_source,
                                 style=summary_style,
                                 provider=provider,
@@ -208,14 +214,64 @@ def main(
                                 output = Path(suggested_filename)
                                 logger.info(f"Using enhanced filename: {output}")
 
-                            # For web URLs, we already have the enhanced markdown
+                            # For PDF URLs, we already have the enhanced markdown
                             output_content = enhanced_markdown
                             summary = enhanced_markdown  # For compatibility with existing logic
-                            content_id = None  # Web URLs don't have a specific content_id
+                            content_id = None  # PDF URLs don't have a specific content_id
 
                         except Exception as e:
-                            logger.error(f"Failed to process web URL: {e}")
+                            logger.error(f"Failed to process PDF URL: {e}")
                             sys.exit(1)
+
+                    else:
+                        # Check if it's a YouTube URL
+                        try:
+                            content_id = summarizer.transcript_extractor.extract_video_id(
+                                input_source
+                            )
+                            logger.info(f"Processing YouTube video: {content_id}")
+
+                            # Use enhanced metadata functionality for YouTube videos
+                            enhanced_markdown, suggested_filename = summarizer.summarize_video_with_metadata(
+                                input_source,
+                                style=summary_style,
+                                provider=provider,
+                                languages=language_list,
+                            )
+
+                            # Update output filename if not explicitly provided
+                            if not output_explicitly_provided:
+                                output = Path(suggested_filename)
+                                logger.info(f"Using enhanced filename: {output}")
+
+                            # For YouTube videos, we already have the enhanced markdown
+                            output_content = enhanced_markdown
+                            summary = enhanced_markdown  # For compatibility with existing logic
+
+                        except ValueError:
+                            # Not a YouTube URL, treat as regular web URL
+                            logger.info(f"Processing web URL: {input_source}")
+                            try:
+                                # Use enhanced metadata functionality for web URLs
+                                enhanced_markdown, suggested_filename = summarizer.summarize_url_with_metadata(
+                                    input_source,
+                                    style=summary_style,
+                                    provider=provider,
+                                )
+
+                                # Update output filename if not explicitly provided
+                                if not output_explicitly_provided:
+                                    output = Path(suggested_filename)
+                                    logger.info(f"Using enhanced filename: {output}")
+
+                                # For web URLs, we already have the enhanced markdown
+                                output_content = enhanced_markdown
+                                summary = enhanced_markdown  # For compatibility with existing logic
+                                content_id = None  # Web URLs don't have a specific content_id
+
+                            except Exception as e:
+                                logger.error(f"Failed to process web URL: {e}")
+                                sys.exit(1)
                 else:
                     # Assume it's a YouTube video ID
                     try:

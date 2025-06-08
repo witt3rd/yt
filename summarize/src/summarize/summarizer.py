@@ -16,6 +16,7 @@ from common.config import Config
 from common.types import TranscriptData, TranscriptSegment
 from transcript import TranscriptExtractor, MetadataGenerator, YouTubeAPIError, OpenAIError
 from scrape import WebScraper, WebMetadataGenerator, FirecrawlAPIError
+from pdf import PdfConverter, PdfMetadataGenerator, PdfConversionError
 
 
 class SummaryStyle(Enum):
@@ -84,6 +85,10 @@ class ContentSummarizer:
         # Initialize web scraper and metadata generator for URL processing
         self.web_scraper = WebScraper(self.config)
         self.web_metadata_generator = WebMetadataGenerator(self.config)
+
+        # Initialize PDF converter and metadata generator for PDF processing
+        self.pdf_converter = PdfConverter(self.config)
+        self.pdf_metadata_generator = PdfMetadataGenerator(self.config)
 
         # Initialize AI clients based on available API keys
         self.openai_client = None
@@ -786,3 +791,191 @@ Transcript:
             raise
 
         logger.info("URL summarization with metadata completed successfully")
+
+    def summarize_pdf(
+        self,
+        source: str,
+        style: SummaryStyle = SummaryStyle.BRIEF,
+        provider: str | None = None,
+        max_pages: int | None = None,
+    ) -> str:
+        """Summarize content from a PDF document.
+
+        Parameters
+        ----------
+        source : str
+            PDF file path or URL.
+        style : SummaryStyle, default SummaryStyle.BRIEF
+            Desired summary style.
+        provider : str, optional
+            AI provider to use ("openai" or "anthropic").
+        max_pages : int, optional
+            Maximum number of pages to process.
+
+        Returns
+        -------
+        str
+            Generated summary.
+
+        Raises
+        ------
+        Exception
+            If PDF conversion or summarization fails.
+
+        Examples
+        --------
+        >>> summarizer = ContentSummarizer()
+        >>> summary = summarizer.summarize_pdf(
+        ...     "paper.pdf",
+        ...     style=SummaryStyle.KEY_TAKEAWAYS
+        ... )
+        >>> len(summary) > 0
+        True
+        """
+        logger.info(f"Summarizing PDF: {source}")
+
+        try:
+            # Convert PDF to markdown
+            converted_content = self.pdf_converter.convert_pdf(
+                source=source,
+                max_pages=max_pages,
+            )
+
+            logger.info(f"Successfully converted PDF: {converted_content.word_count} words")
+
+            # Convert to text and summarize
+            content_text = self.pdf_converter.content_to_text(converted_content)
+            transcript = self.text_to_transcript(content_text)
+            summary = self.summarize_transcript(transcript, style, provider)
+
+            logger.info("PDF summarization completed successfully")
+            return summary
+
+        except PdfConversionError as e:
+            logger.error(f"Failed to convert PDF {source}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to summarize PDF {source}: {e}")
+            raise
+
+    def summarize_pdf_with_metadata(
+        self,
+        source: str,
+        style: SummaryStyle = SummaryStyle.BRIEF,
+        provider: str | None = None,
+        max_pages: int | None = None,
+        disable_ai_generation: bool = False,
+    ) -> tuple[str, str]:
+        """Summarize a PDF document with enhanced metadata and frontmatter.
+
+        Parameters
+        ----------
+        source : str
+            PDF file path or URL.
+        style : SummaryStyle, default SummaryStyle.BRIEF
+            Desired summary style.
+        provider : str, optional
+            AI provider to use ("openai" or "anthropic").
+        max_pages : int, optional
+            Maximum number of pages to process.
+        disable_ai_generation : bool, default False
+            Disable AI-powered filename and tag generation.
+
+        Returns
+        -------
+        tuple[str, str]
+            Enhanced markdown content with frontmatter and suggested filename.
+
+        Raises
+        ------
+        Exception
+            If PDF conversion or summarization fails.
+
+        Examples
+        --------
+        >>> summarizer = ContentSummarizer()
+        >>> content, filename = summarizer.summarize_pdf_with_metadata(
+        ...     "https://arxiv.org/pdf/2506.05296",
+        ...     style=SummaryStyle.KEY_TAKEAWAYS
+        ... )
+        >>> filename.endswith(".md")
+        True
+        >>> "---" in content
+        True
+        """
+        logger.info(f"Summarizing PDF with metadata: {source}")
+
+        try:
+            # Convert PDF to markdown
+            converted_content = self.pdf_converter.convert_pdf(
+                source=source,
+                max_pages=max_pages,
+            )
+
+            logger.info(f"Successfully converted PDF: {converted_content.word_count} words")
+
+            # Extract PDF metadata
+            try:
+                pdf_metadata = self.pdf_metadata_generator.extract_pdf_metadata(converted_content)
+                logger.info(f"Extracted metadata for: {pdf_metadata.title or pdf_metadata.url}")
+
+                # Generate AI content if enabled
+                ai_content = None
+                if not disable_ai_generation:
+                    try:
+                        # Get content preview for AI analysis
+                        content_preview = converted_content.markdown[:2000] if converted_content.markdown else ""
+                        ai_content = self.pdf_metadata_generator.generate_ai_content_for_pdf(
+                            pdf_metadata, content_preview
+                        )
+                        logger.info("Generated AI-powered metadata")
+                    except Exception as e:
+                        logger.warning(f"Failed to generate AI content: {e}")
+                        logger.info("Proceeding with basic metadata")
+
+                # Convert to text and generate summary
+                content_text = self.pdf_converter.content_to_text(converted_content)
+                transcript = self.text_to_transcript(content_text)
+                summary = self.summarize_transcript(transcript, style, provider)
+
+                # Generate complete markdown with frontmatter + summary
+                enhanced_markdown = self.pdf_metadata_generator.generate_markdown_content(
+                    pdf_metadata, summary, ai_content
+                )
+
+                # Get suggested filename
+                suggested_filename = self.pdf_metadata_generator.get_suggested_filename(
+                    pdf_metadata, ai_content
+                )
+
+                logger.info(f"Generated enhanced summary with filename: {suggested_filename}")
+                return enhanced_markdown, suggested_filename
+
+            except Exception as e:
+                logger.warning(f"Failed to extract PDF metadata: {e}")
+                logger.info("Falling back to basic summary without metadata")
+
+                # Fallback: generate plain summary and use basic filename
+                content_text = self.pdf_converter.content_to_text(converted_content)
+                transcript = self.text_to_transcript(content_text)
+                summary = self.summarize_transcript(transcript, style, provider)
+
+                # Generate basic filename from source
+                if converted_content.source_type == 'file':
+                    base_name = Path(source).stem
+                    basic_filename = f"summary-{base_name}.md"
+                elif converted_content.source_type == 'arxiv':
+                    basic_filename = "summary-arxiv-paper.md"
+                else:
+                    basic_filename = "summary-pdf.md"
+
+                return summary, basic_filename
+
+        except PdfConversionError as e:
+            logger.error(f"Failed to convert PDF {source}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to summarize PDF with metadata: {e}")
+            raise
+
+        logger.info("PDF summarization with metadata completed successfully")
