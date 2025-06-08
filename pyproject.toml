@@ -2,10 +2,12 @@
 members = [
     "common",
     "transcript",
-    "summarize"
+    "summarize",
+    "scrape"
 ]
 
 [tool.uv.sources]
 common = { workspace = true }
 transcript = { workspace = true }
 summarize = { workspace = true }
+scrape = { workspace = true }

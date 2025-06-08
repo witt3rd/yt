@@ -126,23 +126,28 @@ def main(
             logger.error(f"Invalid style: {style}")
             sys.exit(1)
 
+        # Track if output was explicitly provided by user
+        output_explicitly_provided = output is not None
+
         # Generate default output filename if none provided
         if output is None:
             # Check if input is a file path
             input_path = Path(input_source)
             if input_path.exists() and input_path.is_file():
                 # For file input, use same name with .md extension
-                output = input_path.with_suffix('.md')
+                output = Path(input_path.with_suffix('.md'))
+                logger.info(f"No output file specified, using default: {output}")
             else:
                 # For YouTube URL/ID, extract video ID and use it as filename
                 try:
                     video_id = summarizer.transcript_extractor.extract_video_id(input_source)
                     output = Path(f"{video_id}.md")
+                    logger.info(f"No output file specified, using default: {output}")
                 except ValueError:
-                    # If we can't extract video ID, use a generic name
+                    # For web URLs, we'll set the filename after we get the AI-generated name
+                    # For now, use a temporary placeholder
                     output = Path("summary.md")
-
-            logger.info(f"No output file specified, using default: {output}")
+                    logger.info(f"No output file specified, will use AI-generated filename")
 
         # Detect input type and generate summary
         try:
@@ -161,35 +166,86 @@ def main(
                 content_id = None
                 output_content = summary
             else:
-                # Assume it's a YouTube URL or video ID
-                try:
-                    content_id = summarizer.transcript_extractor.extract_video_id(
-                        input_source
-                    )
-                    logger.info(f"Processing video ID: {content_id}")
+                # Check if it's a web URL (starts with http:// or https://)
+                if input_source.startswith(('http://', 'https://')):
+                    # Check if it's a YouTube URL first
+                    try:
+                        content_id = summarizer.transcript_extractor.extract_video_id(
+                            input_source
+                        )
+                        logger.info(f"Processing YouTube video: {content_id}")
 
-                    # Use enhanced metadata functionality for YouTube videos
-                    enhanced_markdown, suggested_filename = summarizer.summarize_video_with_metadata(
-                        input_source,
-                        style=summary_style,
-                        provider=provider,
-                        languages=language_list,
-                    )
+                        # Use enhanced metadata functionality for YouTube videos
+                        enhanced_markdown, suggested_filename = summarizer.summarize_video_with_metadata(
+                            input_source,
+                            style=summary_style,
+                            provider=provider,
+                            languages=language_list,
+                        )
 
-                    # Update output filename if not explicitly provided
-                    if output is None or output == Path(f"{content_id}.md"):
-                        output = Path(suggested_filename)
-                        logger.info(f"Using enhanced filename: {output}")
+                        # Update output filename if not explicitly provided
+                        if not output_explicitly_provided:
+                            output = Path(suggested_filename)
+                            logger.info(f"Using enhanced filename: {output}")
 
-                    # For YouTube videos, we already have the enhanced markdown
-                    output_content = enhanced_markdown
-                    summary = enhanced_markdown  # For compatibility with existing logic
+                        # For YouTube videos, we already have the enhanced markdown
+                        output_content = enhanced_markdown
+                        summary = enhanced_markdown  # For compatibility with existing logic
 
-                except ValueError as e:
-                    logger.error(
-                        f"Invalid input: not a valid file path or YouTube URL/ID: {e}"
-                    )
-                    sys.exit(1)
+                    except ValueError:
+                        # Not a YouTube URL, treat as regular web URL
+                        logger.info(f"Processing web URL: {input_source}")
+                        try:
+                            # Use enhanced metadata functionality for web URLs
+                            enhanced_markdown, suggested_filename = summarizer.summarize_url_with_metadata(
+                                input_source,
+                                style=summary_style,
+                                provider=provider,
+                            )
+
+                            # Update output filename if not explicitly provided
+                            if not output_explicitly_provided:
+                                output = Path(suggested_filename)
+                                logger.info(f"Using enhanced filename: {output}")
+
+                            # For web URLs, we already have the enhanced markdown
+                            output_content = enhanced_markdown
+                            summary = enhanced_markdown  # For compatibility with existing logic
+                            content_id = None  # Web URLs don't have a specific content_id
+
+                        except Exception as e:
+                            logger.error(f"Failed to process web URL: {e}")
+                            sys.exit(1)
+                else:
+                    # Assume it's a YouTube video ID
+                    try:
+                        content_id = summarizer.transcript_extractor.extract_video_id(
+                            input_source
+                        )
+                        logger.info(f"Processing video ID: {content_id}")
+
+                        # Use enhanced metadata functionality for YouTube videos
+                        enhanced_markdown, suggested_filename = summarizer.summarize_video_with_metadata(
+                            input_source,
+                            style=summary_style,
+                            provider=provider,
+                            languages=language_list,
+                        )
+
+                        # Update output filename if not explicitly provided
+                        if not output_explicitly_provided:
+                            output = Path(suggested_filename)
+                            logger.info(f"Using enhanced filename: {output}")
+
+                        # For YouTube videos, we already have the enhanced markdown
+                        output_content = enhanced_markdown
+                        summary = enhanced_markdown  # For compatibility with existing logic
+
+                    except ValueError as e:
+                        logger.error(
+                            f"Invalid input: not a valid file path, web URL, or YouTube URL/ID: {e}"
+                        )
+                        sys.exit(1)
 
             logger.info("Summary generation completed successfully")
         except Exception as e:

@@ -1,24 +1,23 @@
 [project]
-name = "summarize"
+name = "scrape"
 version = "0.1.0"
-description = "Content summarization utilities"
+description = "Web content extraction utilities using Firecrawl"
 requires-python = ">=3.13"
 dependencies = [
     "common",
-    "transcript",
-    "scrape",
-    "openai>=1.30.0",
-    "anthropic>=0.25.0",
+    "firecrawl-py>=1.0.0",
     "click>=8.1.7",
+    "openai>=1.0.0",
+    "anthropic>=0.25.0",
+    "tenacity>=9.0.0",
+    "validators>=0.22.0",
 ]
 
 [tool.uv.sources]
 common = { workspace = true }
-transcript = { workspace = true }
-scrape = { workspace = true }
 
 [project.scripts]
-summarize = "summarize.cli:main"
+scrape = "scrape.cli:main"
 
 [build-system]
 requires = ["hatchling"]

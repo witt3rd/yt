@@ -12,19 +12,21 @@ This project follows the principle of **do one thing well**. Each module is desi
 
 - **YouTube Transcript Extraction**: Extract transcripts from YouTube videos with multiple language support
 - **Enhanced YouTube Metadata**: AI-powered filename generation and YAML frontmatter for Obsidian compatibility
+- **Web Content Extraction**: Extract content from any web page using Firecrawl with support for dynamic websites
 - **Universal Content Summarization**: Summarize any text content using OpenAI GPT or Anthropic Claude models
   - YouTube videos with rich metadata and frontmatter
   - Text files (Markdown, plain text, etc.)
-- **Multiple Output Formats**: Support for text, JSON, timed transcript, and enhanced markdown formats
+  - Web pages with AI-powered metadata extraction
+- **Multiple Output Formats**: Support for text, JSON, timed transcript, HTML, and enhanced markdown formats
 - **Intelligent File Naming**: AI-generated descriptive filenames for better organization
 - **Configurable Summary Styles**: Brief, detailed, bullet-points, key takeaways, chapter breakdown, and question-oriented analysis
-- **CLI Tools**: Command-line interfaces for transcript extraction and content summarization
+- **CLI Tools**: Command-line interfaces for transcript extraction, web scraping, and content summarization
 - **Modular Design**: Independent packages that share common utilities
 
 ### Planned Capabilities 🚧
 
-- **Web Content Extraction**: General web scraping and content extraction using Firecrawl for clean markdown conversion
-- **Additional Content Sources**: Support for more input formats and sources
+- **Additional Content Sources**: Support for more input formats and sources (PDFs, documents, etc.)
+- **Advanced Web Crawling**: Site-wide content extraction and analysis
 
 ## Project Structure
 
@@ -51,6 +53,14 @@ yt/
 │       └── transcript/
 │           ├── __init__.py
 │           ├── extractor.py    # Core transcript functionality
+│           └── cli.py          # Command-line interface
+├── scrape/                     # Web content extraction
+│   ├── pyproject.toml
+│   └── src/
+│       └── scrape/
+│           ├── __init__.py
+│           ├── scraper.py      # Core web scraping functionality
+│           ├── metadata.py     # Web metadata generation
 │           └── cli.py          # Command-line interface
 └── summarize/                  # Universal content summarization
     ├── pyproject.toml
@@ -154,6 +164,47 @@ tags: [music, pop, 80s, rickroll, official-video]
 ---
 
 ♪ We're no strangers to love ♪ ♪ You know the rules and so do I ♪...
+```
+
+### Web Content Extraction
+
+Extract content from any web page using Firecrawl with AI-powered metadata:
+
+```bash
+# Basic web content extraction
+uv run --package scrape scrape "https://example.com"
+
+# Enhanced markdown with AI-powered metadata (requires API keys)
+uv run --package scrape scrape "https://example.com" --format markdown
+# Creates: Example-Article-Title-Example-Com.md
+
+# Save to specific file with JSON format
+uv run --package scrape scrape "https://example.com" --format json --output content.json
+
+# Advanced Firecrawl features for dynamic content
+uv run --package scrape scrape "https://spa-website.com" --wait-for 3000 --screenshot
+
+# Include HTML content and links
+uv run --package scrape scrape "https://example.com" --format html --include-links
+```
+
+**Enhanced Web Markdown Output Example:**
+```markdown
+---
+title: Introduction to Web Scraping with Python
+source: web
+url: https://example.com/web-scraping-guide
+domain: example.com
+scrape_date: 2024-01-15
+authors: John Developer
+tags: [python, web-scraping, automation, tutorial]
+word_count: 1250
+content_type: tutorial
+---
+
+# Introduction to Web Scraping with Python
+
+Web scraping is the process of automatically extracting data from websites...
 ```
 
 ### Content Summarization
@@ -285,12 +336,13 @@ This project follows Python 3.13 best practices:
 ### Supported Input Sources
 
 - **YouTube**: URLs, video IDs with automatic extraction
+- **Web Pages**: Any URL with Firecrawl-powered content extraction
 - **Text Files**: Markdown, plain text, any UTF-8 encoded files
-- **Future**: Web pages via Firecrawl
 
 ### Output Formats
 
 - **Transcript Output**: Plain text, timed text with timestamps, structured JSON
+- **Web Content Output**: Plain text, enhanced markdown with frontmatter, HTML, structured JSON
 - **Summary Output**: Plain text, JSON with metadata and analysis details
 - **Languages**: Auto-detection, manual specification, multi-language preference lists
 
@@ -302,8 +354,11 @@ This project follows Python 3.13 best practices:
 - `python-dotenv` - Environment variable management
 - `click` - Command-line interfaces
 - `youtube-transcript-api` - YouTube transcript extraction
+- `firecrawl-py` - Web content extraction
 - `openai` - OpenAI API client
 - `anthropic` - Anthropic API client
+- `validators` - URL validation
+- `tenacity` - Retry logic for robust operations
 
 ### Development
 

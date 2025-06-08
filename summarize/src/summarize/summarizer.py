@@ -15,6 +15,7 @@ from loguru import logger
 from common.config import Config
 from common.types import TranscriptData, TranscriptSegment
 from transcript import TranscriptExtractor, MetadataGenerator, YouTubeAPIError, OpenAIError
+from scrape import WebScraper, WebMetadataGenerator, FirecrawlAPIError
 
 
 class SummaryStyle(Enum):
@@ -79,6 +80,10 @@ class ContentSummarizer:
 
         # Initialize metadata generator for enhanced summaries
         self.metadata_generator = MetadataGenerator(self.config)
+
+        # Initialize web scraper and metadata generator for URL processing
+        self.web_scraper = WebScraper(self.config)
+        self.web_metadata_generator = WebMetadataGenerator(self.config)
 
         # Initialize AI clients based on available API keys
         self.openai_client = None
@@ -598,3 +603,186 @@ Transcript:
 
         logger.info("Text file summarization completed successfully")
         return summary
+
+    def summarize_url(
+        self,
+        url: str,
+        style: SummaryStyle = SummaryStyle.BRIEF,
+        provider: str | None = None,
+    ) -> str:
+        """Summarize content from a web URL.
+
+        Parameters
+        ----------
+        url : str
+            Web URL to scrape and summarize.
+        style : SummaryStyle, default SummaryStyle.BRIEF
+            Desired summary style.
+        provider : str, optional
+            AI provider to use ("openai" or "anthropic").
+
+        Returns
+        -------
+        str
+            Generated summary.
+
+        Raises
+        ------
+        Exception
+            If scraping or summarization fails.
+
+        Examples
+        --------
+        >>> summarizer = ContentSummarizer()
+        >>> summary = summarizer.summarize_url(
+        ...     "https://example.com",
+        ...     style=SummaryStyle.KEY_TAKEAWAYS
+        ... )
+        >>> len(summary) > 0
+        True
+        """
+        logger.info(f"Summarizing URL: {url}")
+
+        try:
+            # Scrape content
+            scraped_content = self.web_scraper.scrape_content(
+                url=url,
+                formats=['markdown'],
+                only_main_content=True,
+            )
+
+            logger.info(f"Successfully scraped content: {scraped_content.word_count} words")
+
+            # Convert to text and summarize
+            content_text = self.web_scraper.content_to_text(scraped_content)
+            transcript = self.text_to_transcript(content_text)
+            summary = self.summarize_transcript(transcript, style, provider)
+
+            logger.info("URL summarization completed successfully")
+            return summary
+
+        except FirecrawlAPIError as e:
+            logger.error(f"Failed to scrape URL {url}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to summarize URL {url}: {e}")
+            raise
+
+    def summarize_url_with_metadata(
+        self,
+        url: str,
+        style: SummaryStyle = SummaryStyle.BRIEF,
+        provider: str | None = None,
+        disable_ai_generation: bool = False,
+    ) -> tuple[str, str]:
+        """Summarize a web URL with enhanced metadata and frontmatter.
+
+        Parameters
+        ----------
+        url : str
+            Web URL to scrape and summarize.
+        style : SummaryStyle, default SummaryStyle.BRIEF
+            Desired summary style.
+        provider : str, optional
+            AI provider to use ("openai" or "anthropic").
+        disable_ai_generation : bool, default False
+            Disable AI-powered filename and tag generation.
+
+        Returns
+        -------
+        tuple[str, str]
+            Enhanced markdown content with frontmatter and suggested filename.
+
+        Raises
+        ------
+        Exception
+            If scraping or summarization fails.
+
+        Examples
+        --------
+        >>> summarizer = ContentSummarizer()
+        >>> content, filename = summarizer.summarize_url_with_metadata(
+        ...     "https://example.com",
+        ...     style=SummaryStyle.KEY_TAKEAWAYS
+        ... )
+        >>> filename.endswith(".md")
+        True
+        >>> "---" in content
+        True
+        """
+        logger.info(f"Summarizing URL with metadata: {url}")
+
+        try:
+            # Scrape content
+            scraped_content = self.web_scraper.scrape_content(
+                url=url,
+                formats=['markdown'],
+                only_main_content=True,
+            )
+
+            logger.info(f"Successfully scraped content: {scraped_content.word_count} words")
+
+            # Extract web metadata
+            try:
+                web_metadata = self.web_metadata_generator.extract_web_metadata(scraped_content)
+                logger.info(f"Extracted metadata for: {web_metadata.title or web_metadata.url}")
+
+                # Generate AI content if enabled
+                ai_content = None
+                if not disable_ai_generation:
+                    try:
+                        # Get content preview for AI analysis
+                        content_preview = scraped_content.markdown[:2000] if scraped_content.markdown else ""
+                        ai_content = self.web_metadata_generator.generate_ai_content_for_web(
+                            web_metadata, content_preview
+                        )
+                        logger.info("Generated AI-powered metadata")
+                    except Exception as e:
+                        logger.warning(f"Failed to generate AI content: {e}")
+                        logger.info("Proceeding with basic metadata")
+
+                # Convert to text and generate summary
+                content_text = self.web_scraper.content_to_text(scraped_content)
+                transcript = self.text_to_transcript(content_text)
+                summary = self.summarize_transcript(transcript, style, provider)
+
+                # Generate complete markdown with frontmatter + summary
+                enhanced_markdown = self.web_metadata_generator.generate_markdown_content_for_web(
+                    web_metadata, summary, ai_content
+                )
+
+                # Get suggested filename
+                suggested_filename = self.web_metadata_generator.get_suggested_filename_for_web(
+                    web_metadata, ai_content
+                )
+
+                logger.info(f"Generated enhanced summary with filename: {suggested_filename}")
+                return enhanced_markdown, suggested_filename
+
+            except Exception as e:
+                logger.warning(f"Failed to extract web metadata: {e}")
+                logger.info("Falling back to basic summary without metadata")
+
+                # Fallback: generate plain summary and use basic filename
+                content_text = self.web_scraper.content_to_text(scraped_content)
+                transcript = self.text_to_transcript(content_text)
+                summary = self.summarize_transcript(transcript, style, provider)
+
+                # Generate basic filename from URL
+                try:
+                    validated_url = self.web_scraper.validate_url(url)
+                    domain = validated_url.split('/')[2].replace('www.', '')
+                    basic_filename = f"summary-{domain}.md"
+                except Exception:
+                    basic_filename = "summary-web-content.md"
+
+                return summary, basic_filename
+
+        except FirecrawlAPIError as e:
+            logger.error(f"Failed to scrape URL {url}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to summarize URL with metadata: {e}")
+            raise
+
+        logger.info("URL summarization with metadata completed successfully")
