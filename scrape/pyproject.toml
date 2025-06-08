@@ -7,8 +7,6 @@ dependencies = [
     "common",
     "firecrawl-py>=1.0.0",
     "click>=8.1.7",
-    "openai>=1.0.0",
-    "anthropic>=0.25.0",
     "tenacity>=9.0.0",
     "validators>=0.22.0",
 ]
