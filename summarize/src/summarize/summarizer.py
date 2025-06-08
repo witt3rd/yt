@@ -747,12 +747,12 @@ Transcript:
                 summary = self.summarize_transcript(transcript, style, provider)
 
                 # Generate complete markdown with frontmatter + summary
-                enhanced_markdown = self.web_metadata_generator.generate_markdown_content_for_web(
+                enhanced_markdown = self.web_metadata_generator.generate_markdown_content(
                     web_metadata, summary, ai_content
                 )
 
                 # Get suggested filename
-                suggested_filename = self.web_metadata_generator.get_suggested_filename_for_web(
+                suggested_filename = self.web_metadata_generator.get_suggested_filename(
                     web_metadata, ai_content
                 )
 

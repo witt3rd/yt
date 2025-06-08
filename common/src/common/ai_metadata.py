@@ -48,8 +48,8 @@ class OpenAIError(MetadataGenerationError):
 class AIMetadataGenerator(ABC):
     """Base class for AI-powered metadata generation.
 
-    Provides shared functionality for OpenAI integration, filename generation,
-    tag extraction, and frontmatter construction across different content types.
+    Provides shared functionality for OpenAI integration and defines the interface
+    that all content-specific metadata generators must implement.
 
     Parameters
     ----------
@@ -110,6 +110,75 @@ class AIMetadataGenerator(ABC):
         -------
         tuple[str, str]
             Tuple of (title, source_identifier) for filename generation.
+        """
+        pass
+
+    @abstractmethod
+    def generate_markdown_content(
+        self,
+        metadata: Any,
+        content: str,
+        ai_content: AIGeneratedContent | None = None,
+    ) -> str:
+        """Generate complete markdown content with frontmatter.
+
+        Parameters
+        ----------
+        metadata : Any
+            Content metadata.
+        content : str
+            Main content body.
+        ai_content : AIGeneratedContent, optional
+            AI-generated content for enhanced metadata.
+
+        Returns
+        -------
+        str
+            Complete markdown content with frontmatter.
+        """
+        pass
+
+    @abstractmethod
+    def get_suggested_filename(
+        self,
+        metadata: Any,
+        ai_content: AIGeneratedContent | None = None
+    ) -> str:
+        """Get suggested filename for the markdown file.
+
+        Parameters
+        ----------
+        metadata : Any
+            Content metadata.
+        ai_content : AIGeneratedContent, optional
+            AI-generated content with filename suggestion.
+
+        Returns
+        -------
+        str
+            Suggested filename with .md extension.
+        """
+        pass
+
+    @abstractmethod
+    def construct_frontmatter(
+        self,
+        metadata: Any,
+        ai_content: AIGeneratedContent | None = None,
+    ) -> str:
+        """Construct YAML frontmatter for Obsidian note.
+
+        Parameters
+        ----------
+        metadata : Any
+            Content metadata.
+        ai_content : AIGeneratedContent, optional
+            AI-generated content. If None, only basic metadata is included.
+
+        Returns
+        -------
+        str
+            YAML frontmatter string.
         """
         pass
 
@@ -325,13 +394,15 @@ class AIMetadataGenerator(ABC):
 
         return authors
 
-    def construct_frontmatter(
+    def _construct_frontmatter_base(
         self,
         metadata: Any,
         ai_content: AIGeneratedContent | None = None,
         extra_fields: dict[str, Any] | None = None
     ) -> str:
-        """Construct YAML frontmatter for Obsidian note.
+        """Helper method to construct basic frontmatter fields.
+
+        This provides shared frontmatter construction logic that subclasses can use.
 
         Parameters
         ----------
@@ -351,21 +422,25 @@ class AIMetadataGenerator(ABC):
 
         # Add basic fields that are common across content types
         if hasattr(metadata, 'title') and metadata.title:
-            frontmatter_lines.append(f"title: {metadata.title}")
+            frontmatter_lines.append(f'title: "{metadata.title}"')
         elif hasattr(metadata, 'url'):
-            frontmatter_lines.append("title: Untitled")
+            frontmatter_lines.append('title: "Untitled"')
 
         # Add extra fields if provided
         if extra_fields:
             for key, value in extra_fields.items():
                 if value is not None:
-                    frontmatter_lines.append(f"{key}: {value}")
+                    if isinstance(value, str):
+                        frontmatter_lines.append(f'{key}: "{value}"')
+                    else:
+                        frontmatter_lines.append(f"{key}: {value}")
 
         # Add AI-generated authors
         if ai_content and ai_content.authors:
-            frontmatter_lines.append(f"authors: {', '.join(ai_content.authors)}")
+            authors_str = ', '.join(ai_content.authors)
+            frontmatter_lines.append(f'authors: "{authors_str}"')
         elif hasattr(metadata, 'author') and metadata.author:
-            frontmatter_lines.append(f"authors: {metadata.author}")
+            frontmatter_lines.append(f'authors: "{metadata.author}"')
 
         # Add AI-generated tags
         if ai_content and ai_content.tags:
@@ -376,40 +451,14 @@ class AIMetadataGenerator(ABC):
         frontmatter_lines.append("---")
         return "\n".join(frontmatter_lines)
 
-    def generate_markdown_content(
-        self,
-        metadata: Any,
-        content: str,
-        ai_content: AIGeneratedContent | None = None,
-        extra_fields: dict[str, Any] | None = None
-    ) -> str:
-        """Generate complete markdown content with frontmatter.
-
-        Parameters
-        ----------
-        metadata : Any
-            Content metadata.
-        content : str
-            Main content body.
-        ai_content : AIGeneratedContent, optional
-            AI-generated content for enhanced metadata.
-        extra_fields : dict[str, Any], optional
-            Additional frontmatter fields.
-
-        Returns
-        -------
-        str
-            Complete markdown content with frontmatter.
-        """
-        frontmatter = self.construct_frontmatter(metadata, ai_content, extra_fields)
-        return f"{frontmatter}\n\n{content}"
-
-    def get_suggested_filename(
+    def _get_suggested_filename_base(
         self,
         metadata: Any,
         ai_content: AIGeneratedContent | None = None
     ) -> str:
-        """Get suggested filename for the markdown file.
+        """Helper method for basic filename generation.
+
+        This provides shared filename generation logic that subclasses can use.
 
         Parameters
         ----------

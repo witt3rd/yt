@@ -212,8 +212,10 @@ class MetadataGenerator(AIMetadataGenerator):
         # Use the base class method with description as content preview
         return super().generate_ai_content(metadata, metadata.description)
 
-    def construct_frontmatter_for_video(
-        self, metadata: VideoMetadata, ai_content: AIGeneratedContent | None = None
+    def construct_frontmatter(
+        self,
+        metadata: VideoMetadata,
+        ai_content: AIGeneratedContent | None = None
     ) -> str:
         """Construct YAML frontmatter for YouTube video Obsidian note.
 
@@ -232,7 +234,7 @@ class MetadataGenerator(AIMetadataGenerator):
         Examples
         --------
         >>> generator = MetadataGenerator()
-        >>> frontmatter = generator.construct_frontmatter_for_video(metadata, ai_content)
+        >>> frontmatter = generator.construct_frontmatter(metadata, ai_content)
         >>> "title:" in frontmatter
         True
         """
@@ -244,12 +246,12 @@ class MetadataGenerator(AIMetadataGenerator):
             "date": metadata.publish_date,
         }
 
-        return super().construct_frontmatter(metadata, ai_content, extra_fields)
+        return super()._construct_frontmatter_base(metadata, ai_content, extra_fields)
 
-    def generate_markdown_content_for_video(
+    def generate_markdown_content(
         self,
         metadata: VideoMetadata,
-        transcript_content: str,
+        content: str,
         ai_content: AIGeneratedContent | None = None,
     ) -> str:
         """Generate complete markdown content with frontmatter and transcript.
@@ -258,7 +260,7 @@ class MetadataGenerator(AIMetadataGenerator):
         ----------
         metadata : VideoMetadata
             Video metadata.
-        transcript_content : str
+        content : str
             Formatted transcript content.
         ai_content : AIGeneratedContent, optional
             AI-generated content for enhanced metadata.
@@ -271,24 +273,17 @@ class MetadataGenerator(AIMetadataGenerator):
         Examples
         --------
         >>> generator = MetadataGenerator()
-        >>> content = generator.generate_markdown_content_for_video(metadata, transcript, ai_content)
+        >>> content = generator.generate_markdown_content(metadata, transcript, ai_content)
         >>> content.startswith("---")
         True
         """
-        # Extra fields specific to YouTube videos
-        extra_fields = {
-            "source": "YouTube",
-            "channel": metadata.channel,
-            "url": metadata.url,
-            "date": metadata.publish_date,
-        }
+        frontmatter = self.construct_frontmatter(metadata, ai_content)
+        return f"{frontmatter}\n\n{content}"
 
-        return super().generate_markdown_content(
-            metadata, transcript_content, ai_content, extra_fields
-        )
-
-    def get_suggested_filename_for_video(
-        self, metadata: VideoMetadata, ai_content: AIGeneratedContent | None = None
+    def get_suggested_filename(
+        self,
+        metadata: VideoMetadata,
+        ai_content: AIGeneratedContent | None = None
     ) -> str:
         """Get suggested filename for the markdown file.
 
@@ -307,14 +302,8 @@ class MetadataGenerator(AIMetadataGenerator):
         Examples
         --------
         >>> generator = MetadataGenerator()
-        >>> filename = generator.get_suggested_filename_for_video(metadata, ai_content)
+        >>> filename = generator.get_suggested_filename(metadata, ai_content)
         >>> filename.endswith(".md")
         True
         """
-        if ai_content and ai_content.filename:
-            return f"{ai_content.filename}.md"
-        else:
-            # Fallback to sanitized title + channel
-            safe_title = sanitize_filename(metadata.title)
-            safe_channel = sanitize_filename(metadata.channel)
-            return f"{safe_title}-{safe_channel}.md"
+        return super()._get_suggested_filename_base(metadata, ai_content)

@@ -299,8 +299,10 @@ class WebMetadataGenerator(AIMetadataGenerator):
         # Use the base class method
         return super().generate_ai_content(metadata, content_preview)
 
-    def construct_frontmatter_for_web(
-        self, metadata: WebMetadata, ai_content: AIGeneratedContent | None = None
+    def construct_frontmatter(
+        self,
+        metadata: WebMetadata,
+        ai_content: AIGeneratedContent | None = None
     ) -> str:
         """Construct YAML frontmatter for web content Obsidian note.
 
@@ -319,7 +321,7 @@ class WebMetadataGenerator(AIMetadataGenerator):
         Examples
         --------
         >>> generator = WebMetadataGenerator()
-        >>> frontmatter = generator.construct_frontmatter_for_web(metadata, ai_content)
+        >>> frontmatter = generator.construct_frontmatter(metadata, ai_content)
         >>> "title:" in frontmatter
         True
         """
@@ -336,9 +338,9 @@ class WebMetadataGenerator(AIMetadataGenerator):
         if metadata.publish_date:
             extra_fields["publish_date"] = metadata.publish_date
 
-        return super().construct_frontmatter(metadata, ai_content, extra_fields)
+        return super()._construct_frontmatter_base(metadata, ai_content, extra_fields)
 
-    def generate_markdown_content_for_web(
+    def generate_markdown_content(
         self,
         metadata: WebMetadata,
         content: str,
@@ -363,29 +365,17 @@ class WebMetadataGenerator(AIMetadataGenerator):
         Examples
         --------
         >>> generator = WebMetadataGenerator()
-        >>> markdown = generator.generate_markdown_content_for_web(metadata, content, ai_content)
+        >>> markdown = generator.generate_markdown_content(metadata, content, ai_content)
         >>> markdown.startswith("---")
         True
         """
-        # Extra fields specific to web content
-        extra_fields = {
-            "source": "web",
-            "url": metadata.url,
-            "domain": metadata.domain,
-            "scrape_date": metadata.scrape_date.split("T")[0],
-            "word_count": metadata.word_count,
-            "content_type": metadata.content_type,
-        }
+        frontmatter = self.construct_frontmatter(metadata, ai_content)
+        return f"{frontmatter}\n\n{content}"
 
-        if metadata.publish_date:
-            extra_fields["publish_date"] = metadata.publish_date
-
-        return super().generate_markdown_content(
-            metadata, content, ai_content, extra_fields
-        )
-
-    def get_suggested_filename_for_web(
-        self, metadata: WebMetadata, ai_content: AIGeneratedContent | None = None
+    def get_suggested_filename(
+        self,
+        metadata: WebMetadata,
+        ai_content: AIGeneratedContent | None = None
     ) -> str:
         """Get suggested filename for the markdown file.
 
@@ -404,14 +394,8 @@ class WebMetadataGenerator(AIMetadataGenerator):
         Examples
         --------
         >>> generator = WebMetadataGenerator()
-        >>> filename = generator.get_suggested_filename_for_web(metadata, ai_content)
+        >>> filename = generator.get_suggested_filename(metadata, ai_content)
         >>> filename.endswith(".md")
         True
         """
-        if ai_content and ai_content.filename:
-            return f"{ai_content.filename}.md"
-        else:
-            # Fallback to sanitized title + domain
-            safe_title = sanitize_filename(metadata.title or "Untitled")
-            safe_domain = sanitize_filename(metadata.domain)
-            return f"{safe_title}-{safe_domain}.md"
+        return super()._get_suggested_filename_base(metadata, ai_content)
