@@ -1,7 +1,7 @@
 [project]
 name = "summarize"
 version = "0.1.0"
-description = "YouTube content summarization utilities"
+description = "Content summarization utilities"
 requires-python = ">=3.13"
 dependencies = [
     "common",
@@ -16,7 +16,7 @@ common = { workspace = true }
 transcript = { workspace = true }
 
 [project.scripts]
-yt-summarize = "summarize.cli:main"
+summarize = "summarize.cli:main"
 
 [build-system]
 requires = ["hatchling"]

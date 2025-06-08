@@ -1,8 +1,8 @@
-"""YouTube content summarization functionality.
+"""Content summarization functionality.
 
-This module provides AI-powered summarization of YouTube video transcripts
-using OpenAI GPT and Anthropic Claude models with configurable prompts
-and output styles.
+This module provides AI-powered summarization of various content types
+including YouTube video transcripts, text files, and other documents using
+OpenAI GPT and Anthropic Claude models with configurable prompts and output styles.
 """
 
 from enum import Enum
@@ -28,12 +28,12 @@ class SummaryStyle(Enum):
     QUESTIONS = "questions"
 
 
-class VideoSummarizer:
-    """Summarize YouTube video content using AI models.
+class ContentSummarizer:
+    """Summarize various types of content using AI models.
 
-    Provides methods to generate summaries of YouTube video transcripts
-    using various AI models and summary styles, with automatic transcript
-    extraction integration.
+    Provides methods to generate summaries of text files, YouTube video transcripts,
+    and other content types using various AI models and summary styles, with automatic
+    content extraction and processing.
 
     Parameters
     ----------
@@ -44,8 +44,8 @@ class VideoSummarizer:
 
     Examples
     --------
-    >>> summarizer = VideoSummarizer()
-    >>> summary = summarizer.summarize_video(
+    >>> summarizer = ContentSummarizer()
+    >>> summary = summarizer.summarize_url(
     ...     "dQw4w9WgXcQ",
     ...     style=SummaryStyle.BRIEF
     ... )
@@ -63,7 +63,7 @@ class VideoSummarizer:
         config: Config | None = None,
         transcript_extractor: TranscriptExtractor | None = None,
     ):
-        """Initialize video summarizer.
+        """Initialize content summarizer.
 
         Parameters
         ----------
@@ -142,7 +142,9 @@ class VideoSummarizer:
             try:
                 return self._load_prompt_from_file("question_tree.md")
             except FileNotFoundError:
-                logger.warning("question_tree.md not found, falling back to default prompt")
+                logger.warning(
+                    "question_tree.md not found, falling back to default prompt"
+                )
                 return (
                     "You are an expert at reverse engineering question architecture from content. "
                     "Apply systematic question-oriented analysis to extract the implicit "
@@ -364,7 +366,7 @@ Transcript:
 
         Examples
         --------
-        >>> summarizer = VideoSummarizer()
+        >>> summarizer = ContentSummarizer()
         >>> segments = [TranscriptSegment("Hello world", 0, 1)]
         >>> summary = summarizer.summarize_transcript(segments)
         >>> "Hello" in summary
@@ -428,7 +430,7 @@ Transcript:
 
         Examples
         --------
-        >>> summarizer = VideoSummarizer()
+        >>> summarizer = ContentSummarizer()
         >>> summary = summarizer.summarize_video(
         ...     "dQw4w9WgXcQ",
         ...     style=SummaryStyle.KEY_TAKEAWAYS
@@ -448,7 +450,7 @@ Transcript:
         # Generate summary
         summary = self.summarize_transcript(transcript, style, provider)
 
-        logger.info("Video summarization completed successfully")
+        logger.info("Content summarization completed successfully")
         return summary
 
     def text_to_transcript(self, text: str) -> TranscriptData:

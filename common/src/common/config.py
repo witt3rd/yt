@@ -91,10 +91,10 @@ class Config:
     def max_transcript_length(self) -> int:
         """Maximum transcript length for processing (characters)."""
         try:
-            return int(os.getenv("MAX_TRANSCRIPT_LENGTH", "50000"))
+            return int(os.getenv("MAX_TRANSCRIPT_LENGTH", "800000"))
         except ValueError:
-            logger.warning("Invalid MAX_TRANSCRIPT_LENGTH, using default 50000")
-            return 50000
+            logger.warning("Invalid MAX_TRANSCRIPT_LENGTH, using default 800000")
+            return 800000
 
     @property
     def output_format(self) -> str:

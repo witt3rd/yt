@@ -1,7 +1,8 @@
-"""Command-line interface for YouTube content summarization.
+"""Command-line interface for content summarization.
 
-This module provides a CLI for summarizing YouTube video content
-with various AI providers, styles, and output options.
+This module provides a CLI for summarizing various types of content
+including YouTube videos, text files, and other documents with various
+AI providers, styles, and output options.
 """
 
 import json
@@ -13,7 +14,7 @@ from loguru import logger
 
 from common.config import Config
 from common.logger import setup_logger
-from .summarizer import VideoSummarizer, SummaryStyle
+from .summarizer import ContentSummarizer, SummaryStyle
 
 
 @click.command()
@@ -71,23 +72,23 @@ def main(
     log_level: str,
     log_file: Path | None,
 ):
-    """Summarize YouTube video content or text files using AI.
+    """Summarize various types of content using AI.
 
     INPUT_SOURCE can be a YouTube URL, video ID, or path to a text file.
 
     Examples:
 
-        yt-summarize "https://youtube.com/watch?v=dQw4w9WgXcQ"
+        summarize "https://youtube.com/watch?v=dQw4w9WgXcQ"
 
-        yt-summarize dQw4w9WgXcQ --style detailed --provider anthropic
+        summarize dQw4w9WgXcQ --style detailed --provider anthropic
 
-        yt-summarize transcript.txt --style bullet_points --format json --output summary.json
+        summarize transcript.txt --style bullet_points --format json --output summary.json
 
-        yt-summarize dQw4w9WgXcQ --languages en,es --style key_takeaways
+        summarize dQw4w9WgXcQ --languages en,es --style key_takeaways
 
-        yt-summarize alita.txt --style questions --provider openai
+        summarize alita.txt --style questions --provider openai
 
-        yt-summarize dQw4w9WgXcQ --style questions --provider anthropic
+        summarize document.md --style chapter_breakdown --provider anthropic
     """
     # Set up logging
     setup_logger(level=log_level, log_file=log_file)
@@ -101,7 +102,7 @@ def main(
             logger.error("Configuration validation failed")
             sys.exit(1)
 
-        summarizer = VideoSummarizer(config)
+        summarizer = ContentSummarizer(config)
 
         # Parse languages if provided
         language_list = None
@@ -128,15 +129,15 @@ def main(
                 summary = summarizer.summarize_text_file(
                     input_path, style=summary_style, provider=provider
                 )
-                # For file input, we don't have a video_id
-                video_id = None
+                # For file input, we don't have a content_id
+                content_id = None
             else:
                 # Assume it's a YouTube URL or video ID
                 try:
-                    video_id = summarizer.transcript_extractor.extract_video_id(
+                    content_id = summarizer.transcript_extractor.extract_video_id(
                         input_source
                     )
-                    logger.info(f"Processing video ID: {video_id}")
+                    logger.info(f"Processing video ID: {content_id}")
                     summary = summarizer.summarize_video(
                         input_source,
                         style=summary_style,
@@ -158,7 +159,7 @@ def main(
         if output_format.lower() == "json":
             output_content = json.dumps(
                 {
-                    "video_id": video_id,
+                    "content_id": content_id,
                     "style": summary_style.value,
                     "provider": provider,
                     "summary": summary,
@@ -181,7 +182,7 @@ def main(
         else:
             print(output_content)
 
-        logger.info("Video summarization completed successfully")
+        logger.info("Content summarization completed successfully")
 
     except KeyboardInterrupt:
         logger.info("Operation cancelled by user")
