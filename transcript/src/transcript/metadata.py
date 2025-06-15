@@ -1,29 +1,37 @@
-"""YouTube metadata generation for enhanced transcript output.
+"""Simplified metadata generation for yt-dlp based transcript extraction.
 
-This module provides functionality to fetch YouTube video metadata using the
-YouTube Data API and generate AI-powered filenames, tags, and frontmatter
-for Obsidian-compatible markdown output.
+This module provides basic metadata functionality that works with yt-dlp
+video information instead of the YouTube Data API.
 """
 
-import os
+import re
 from dataclasses import dataclass
-from typing import override
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
+from typing import Optional
+
 from loguru import logger
 
 from common.config import Config
-from common.ai_metadata import (
-    AIMetadataGenerator,
-    AIGeneratedContent,
-    MetadataGenerationError,
-    sanitize_filename,
-)
+from common.types import VideoInfo
+
+
+class MetadataGenerationError(Exception):
+    """Base exception for metadata generation errors."""
+    pass
+
+
+class YouTubeAPIError(MetadataGenerationError):
+    """Raised when YouTube operations fail (compatibility stub)."""
+    pass
+
+
+class OpenAIError(MetadataGenerationError):
+    """Raised when OpenAI operations fail (compatibility stub)."""
+    pass
 
 
 @dataclass
 class VideoMetadata:
-    """YouTube video metadata structure.
+    """YouTube video metadata structure (simplified for yt-dlp).
 
     Parameters
     ----------
@@ -34,9 +42,9 @@ class VideoMetadata:
     channel : str
         Channel name.
     publish_date : str
-        Publication date in YYYY-MM-DD format.
+        Publication date (may be empty if not available).
     description : str
-        Video description text.
+        Video description (may be empty if not available).
     url : str
         Full YouTube URL.
     """
@@ -49,35 +57,58 @@ class VideoMetadata:
     url: str
 
 
-class YouTubeAPIError(MetadataGenerationError):
-    """Raised when YouTube Data API operations fail."""
+@dataclass
+class AIGeneratedContent:
+    """AI-generated content structure (compatibility stub).
 
-    pass
+    Parameters
+    ----------
+    filename : str
+        Suggested filename.
+    tags : list[str]
+        Generated tags.
+    authors : list[str]
+        Identified authors.
+    """
+
+    filename: str
+    tags: list[str]
+    authors: list[str]
 
 
-class OpenAIError(MetadataGenerationError):
-    """Raised when OpenAI API operations fail."""
+def sanitize_filename(filename: str) -> str:
+    """Sanitize filename for safe file system usage.
 
-    pass
+    Parameters
+    ----------
+    filename : str
+        Raw filename.
+
+    Returns
+    -------
+    str
+        Sanitized filename safe for file systems.
+    """
+    # Remove or replace unsafe characters
+    sanitized = re.sub(r'[<>:"/\\|?*]', '-', filename)
+    # Remove consecutive dashes and clean up
+    sanitized = re.sub(r'-+', '-', sanitized).strip('-')
+    # Limit length
+    if len(sanitized) > 200:
+        sanitized = sanitized[:200].rstrip('-')
+    return sanitized
 
 
-class MetadataGenerator(AIMetadataGenerator):
-    """Generate YouTube video metadata and AI-powered content.
+class MetadataGenerator:
+    """Generate YouTube video metadata using yt-dlp video info.
 
-    Provides methods to fetch video metadata from YouTube Data API and
-    generate AI-powered filenames, tags, and authors using OpenAI.
+    This is a simplified version that works with yt-dlp's get_video_info
+    instead of requiring the YouTube Data API.
 
     Parameters
     ----------
     config : Config, optional
         Configuration instance. If None, creates a new Config instance.
-
-    Examples
-    --------
-    >>> generator = MetadataGenerator()
-    >>> metadata = generator.fetch_video_metadata("dQw4w9WgXcQ")
-    >>> metadata.title
-    "Never Gonna Give You Up"
     """
 
     def __init__(self, config: Config | None = None):
@@ -88,43 +119,10 @@ class MetadataGenerator(AIMetadataGenerator):
         config : Config, optional
             Configuration instance for settings.
         """
-        super().__init__(config)
-        self._youtube_api_key = os.getenv("YOUTUBE_API_KEY")
-
-    @override
-    def _get_content_context(self, metadata: VideoMetadata) -> str:
-        """Get content context string for AI prompts.
-
-        Parameters
-        ----------
-        metadata : VideoMetadata
-            Video metadata.
-
-        Returns
-        -------
-        str
-            Context string for AI prompts.
-        """
-        return f"YouTube video '{metadata.title}' from channel '{metadata.channel}'"
-
-    @override
-    def _get_filename_context(self, metadata: VideoMetadata) -> tuple[str, str]:
-        """Get title and source context for filename generation.
-
-        Parameters
-        ----------
-        metadata : VideoMetadata
-            Video metadata.
-
-        Returns
-        -------
-        tuple[str, str]
-            Tuple of (title, source_identifier) for filename generation.
-        """
-        return metadata.title, metadata.channel
+        self.config = config or Config()
 
     def fetch_video_metadata(self, video_id: str) -> VideoMetadata:
-        """Fetch video metadata from YouTube Data API.
+        """Fetch video metadata using yt-dlp video info.
 
         Parameters
         ----------
@@ -134,119 +132,123 @@ class MetadataGenerator(AIMetadataGenerator):
         Returns
         -------
         VideoMetadata
-            Complete video metadata structure.
+            Video metadata structure.
 
         Raises
         ------
         YouTubeAPIError
-            If unable to fetch video metadata from YouTube API.
-
-        Examples
-        --------
-        >>> generator = MetadataGenerator()
-        >>> metadata = generator.fetch_video_metadata("dQw4w9WgXcQ")
-        >>> metadata.channel
-        "RickAstleyVEVO"
+            If unable to fetch video metadata.
         """
-        if not self._youtube_api_key:
-            raise YouTubeAPIError(
-                "YouTube API key not found. Set YOUTUBE_API_KEY environment variable."
-            )
+        from .extractor import TranscriptExtractor
 
         try:
             logger.info(f"Fetching metadata for video: {video_id}")
-            youtube = build("youtube", "v3", developerKey=self._youtube_api_key)
-            request = youtube.videos().list(part="snippet", id=video_id)
-            response = request.execute()
+            extractor = TranscriptExtractor(self.config)
+            video_info = extractor.get_video_info(video_id)
 
-            if not response["items"]:
-                raise YouTubeAPIError(f"Video not found: {video_id}")
-
-            snippet = response["items"][0]["snippet"]
-
-            # Clean and format the data
+            # Convert VideoInfo to VideoMetadata format
             metadata = VideoMetadata(
                 video_id=video_id,
-                title=snippet["title"],
-                channel=snippet["channelTitle"],
-                publish_date=snippet["publishedAt"].split("T")[0],
-                description=snippet["description"],
+                title=video_info.title or f"Video {video_id}",
+                channel=video_info.channel or "Unknown Channel",
+                publish_date="",  # Not available from yt-dlp basic info
+                description="",   # Not available from yt-dlp basic info
                 url=f"https://www.youtube.com/watch?v={video_id}",
             )
 
             logger.info(f"Successfully fetched metadata for: {metadata.title}")
             return metadata
 
-        except HttpError as e:
-            error_msg = f"YouTube API error for video {video_id}: {e}"
-            logger.error(error_msg)
-            raise YouTubeAPIError(error_msg) from e
         except Exception as e:
-            error_msg = f"Unexpected error fetching metadata for {video_id}: {e}"
+            error_msg = f"Failed to fetch metadata for video {video_id}: {e}"
             logger.error(error_msg)
             raise YouTubeAPIError(error_msg) from e
 
-    def generate_ai_content_for_video(
-        self, metadata: VideoMetadata
-    ) -> AIGeneratedContent:
-        """Generate AI-powered filename, tags, and authors for video.
+    def generate_ai_content(self, metadata: VideoMetadata) -> AIGeneratedContent:
+        """Generate AI content (simplified stub).
 
         Parameters
         ----------
         metadata : VideoMetadata
-            Video metadata to analyze.
+            Video metadata.
 
         Returns
         -------
         AIGeneratedContent
-            AI-generated filename, tags, and authors.
-
-        Examples
-        --------
-        >>> generator = MetadataGenerator()
-        >>> metadata = VideoMetadata(...)
-        >>> ai_content = generator.generate_ai_content_for_video(metadata)
-        >>> ai_content.filename
-        "Never-Gonna-Give-You-Up-RickAstleyVEVO"
+            Basic AI content with simple filename generation.
         """
-        # Use the base class method with description as content preview
-        return super().generate_ai_content(metadata, metadata.description)
+        # Simple filename generation based on title and channel
+        title_part = sanitize_filename(metadata.title)[:100]
+        channel_part = sanitize_filename(metadata.channel)[:50]
+
+        # Create a reasonable filename
+        if title_part and channel_part:
+            filename = f"{title_part}-{channel_part}.md"
+        elif title_part:
+            filename = f"{title_part}.md"
+        else:
+            filename = f"{metadata.video_id}.md"
+
+        # Basic tags from title
+        tags = []
+        if metadata.title:
+            # Extract potential tags from title
+            words = re.findall(r'\b\w+\b', metadata.title.lower())
+            common_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'}
+            tags = [word for word in words if len(word) > 3 and word not in common_words][:5]
+
+        # Use channel as author
+        authors = [metadata.channel] if metadata.channel != "Unknown Channel" else []
+
+        return AIGeneratedContent(
+            filename=filename,
+            tags=tags,
+            authors=authors,
+        )
 
     def construct_frontmatter(
         self,
         metadata: VideoMetadata,
         ai_content: AIGeneratedContent | None = None
     ) -> str:
-        """Construct YAML frontmatter for YouTube video Obsidian note.
+        """Construct YAML frontmatter for YouTube video.
 
         Parameters
         ----------
         metadata : VideoMetadata
             Video metadata.
         ai_content : AIGeneratedContent, optional
-            AI-generated content. If None, only basic metadata is included.
+            AI-generated content.
 
         Returns
         -------
         str
             YAML frontmatter string.
-
-        Examples
-        --------
-        >>> generator = MetadataGenerator()
-        >>> frontmatter = generator.construct_frontmatter(metadata, ai_content)
-        >>> "title:" in frontmatter
-        True
         """
-        # Extra fields specific to YouTube videos
-        extra_fields = {
-            "source": "YouTube",
-            "channel": metadata.channel,
-            "url": metadata.url,
-            "date": metadata.publish_date,
-        }
+        frontmatter_lines = ["---"]
 
-        return super()._construct_frontmatter_base(metadata, ai_content, extra_fields)
+        # Basic metadata
+        frontmatter_lines.append(f'title: "{metadata.title}"')
+        frontmatter_lines.append(f"source: YouTube")
+        frontmatter_lines.append(f'channel: "{metadata.channel}"')
+        frontmatter_lines.append(f"url: {metadata.url}")
+        frontmatter_lines.append(f"video_id: {metadata.video_id}")
+
+        if metadata.publish_date:
+            frontmatter_lines.append(f"date: {metadata.publish_date}")
+
+        # AI-generated content if available
+        if ai_content:
+            if ai_content.tags:
+                tags_str = ", ".join(f'"{tag}"' for tag in ai_content.tags)
+                frontmatter_lines.append(f"tags: [{tags_str}]")
+
+            if ai_content.authors:
+                authors_str = ", ".join(f'"{author}"' for author in ai_content.authors)
+                frontmatter_lines.append(f"authors: [{authors_str}]")
+
+        frontmatter_lines.append("---")
+        return "\n".join(frontmatter_lines)
 
     def generate_markdown_content(
         self,
@@ -254,14 +256,14 @@ class MetadataGenerator(AIMetadataGenerator):
         content: str,
         ai_content: AIGeneratedContent | None = None,
     ) -> str:
-        """Generate complete markdown content with frontmatter and transcript.
+        """Generate complete markdown content with frontmatter.
 
         Parameters
         ----------
         metadata : VideoMetadata
             Video metadata.
         content : str
-            Formatted transcript content.
+            Main content (transcript or summary).
         ai_content : AIGeneratedContent, optional
             AI-generated content for enhanced metadata.
 
@@ -269,13 +271,6 @@ class MetadataGenerator(AIMetadataGenerator):
         -------
         str
             Complete markdown content with frontmatter.
-
-        Examples
-        --------
-        >>> generator = MetadataGenerator()
-        >>> content = generator.generate_markdown_content(metadata, transcript, ai_content)
-        >>> content.startswith("---")
-        True
         """
         frontmatter = self.construct_frontmatter(metadata, ai_content)
         return f"{frontmatter}\n\n{content}"
@@ -298,12 +293,10 @@ class MetadataGenerator(AIMetadataGenerator):
         -------
         str
             Suggested filename with .md extension.
-
-        Examples
-        --------
-        >>> generator = MetadataGenerator()
-        >>> filename = generator.get_suggested_filename(metadata, ai_content)
-        >>> filename.endswith(".md")
-        True
         """
-        return super()._get_suggested_filename_base(metadata, ai_content)
+        if ai_content and ai_content.filename:
+            return ai_content.filename
+
+        # Fallback filename generation
+        title_part = sanitize_filename(metadata.title)[:100] if metadata.title else metadata.video_id
+        return f"{title_part}.md"

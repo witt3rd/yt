@@ -73,6 +73,11 @@ class Config:
         return os.getenv("ANTHROPIC_API_KEY", "")
 
     @property
+    def google_api_key(self) -> str:
+        """Google API key for YouTube Data API services."""
+        return os.getenv("GOOGLE_API_KEY", "")
+
+    @property
     def default_model(self) -> str:
         """Default AI model to use for summarization."""
         return os.getenv("DEFAULT_MODEL", "gpt-4o-mini")

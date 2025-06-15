@@ -1,7 +1,7 @@
-"""Command-line interface for YouTube transcript extraction.
+"""Command-line interface for YouTube transcript extraction using yt-dlp.
 
 This module provides a CLI for extracting transcripts from YouTube videos
-with various output formats and options.
+with various output formats and options using yt-dlp as the backend.
 """
 
 import json
@@ -13,8 +13,13 @@ from loguru import logger
 
 from common.config import Config
 from common.logger import setup_logger
-from .extractor import TranscriptExtractor
-from .metadata import MetadataGenerator, YouTubeAPIError, OpenAIError
+from .extractor import (
+    TranscriptExtractor,
+    TranscriptExtractorError,
+    TranscriptsDisabled,
+    NoTranscriptFound,
+    VideoUnavailable,
+)
 
 
 @click.command()
@@ -26,7 +31,7 @@ from .metadata import MetadataGenerator, YouTubeAPIError, OpenAIError
 )
 @click.option(
     '--format', '-f', 'output_format',
-    type=click.Choice(['text', 'timed', 'json', 'markdown'], case_sensitive=False),
+    type=click.Choice(['text', 'timed', 'json'], case_sensitive=False),
     default='text',
     help='Output format (default: text).'
 )
@@ -38,11 +43,6 @@ from .metadata import MetadataGenerator, YouTubeAPIError, OpenAIError
     '--no-auto-generated',
     is_flag=True,
     help='Exclude auto-generated transcripts, only use manual ones.'
-)
-@click.option(
-    '--disable-ai-generation',
-    is_flag=True,
-    help='Disable AI-powered filename and tag generation for markdown format.'
 )
 @click.option(
     '--log-level',
@@ -61,11 +61,10 @@ def main(
     output_format: str,
     languages: str | None,
     no_auto_generated: bool,
-    disable_ai_generation: bool,
     log_level: str,
     log_file: Path | None
 ):
-    """Extract transcripts from YouTube videos.
+    """Extract transcripts from YouTube videos using yt-dlp.
 
     URL_OR_ID can be a YouTube URL or video ID.
 
@@ -77,9 +76,7 @@ def main(
 
         yt-transcript dQw4w9WgXcQ --languages en,es --format timed
 
-        yt-transcript dQw4w9WgXcQ --format markdown
-
-        yt-transcript dQw4w9WgXcQ --format markdown --disable-ai-generation
+        yt-transcript dQw4w9WgXcQ --no-auto-generated
     """
     # Set up logging
     setup_logger(level=log_level, log_file=log_file)
@@ -110,8 +107,20 @@ def main(
                 auto_generated=not no_auto_generated
             )
             logger.info(f"Successfully extracted transcript with {len(transcript)} segments")
+        except VideoUnavailable as e:
+            logger.error(f"Video unavailable: {e}")
+            sys.exit(1)
+        except NoTranscriptFound as e:
+            logger.error(f"No transcript found: {e}")
+            sys.exit(1)
+        except TranscriptsDisabled as e:
+            logger.error(f"Transcripts disabled: {e}")
+            sys.exit(1)
+        except TranscriptExtractorError as e:
+            logger.error(f"Transcript extraction failed: {e}")
+            sys.exit(1)
         except Exception as e:
-            logger.error(f"Failed to extract transcript: {e}")
+            logger.error(f"Unexpected error during transcript extraction: {e}")
             sys.exit(1)
 
         # Format output
@@ -132,55 +141,6 @@ def main(
             }, indent=2)
         elif output_format.lower() == 'timed':
             output_content = extractor.transcript_to_timed_text(transcript)
-        elif output_format.lower() == 'markdown':
-            # Generate markdown with metadata and frontmatter
-            try:
-                metadata_generator = MetadataGenerator(config)
-
-                # Fetch video metadata
-                try:
-                    video_metadata = metadata_generator.fetch_video_metadata(video_id)
-                    logger.info(f"Fetched metadata for: {video_metadata.title}")
-                except YouTubeAPIError as e:
-                    logger.warning(f"Failed to fetch video metadata: {e}")
-                    logger.info("Proceeding with basic transcript output")
-                    output_content = extractor.transcript_to_text(transcript)
-                    # Set suggested filename for markdown without metadata
-                    if not output:
-                        output = Path(f"{video_id}.md")
-                else:
-                    # Generate AI content if enabled and possible
-                    ai_content = None
-                    if not disable_ai_generation:
-                        try:
-                            ai_content = metadata_generator.generate_ai_content(video_metadata)
-                            logger.info("Generated AI-powered metadata")
-                        except OpenAIError as e:
-                            logger.warning(f"Failed to generate AI content: {e}")
-                            logger.info("Proceeding with basic metadata")
-
-                    # Generate transcript content
-                    transcript_text = extractor.transcript_to_text(transcript)
-
-                    # Generate complete markdown with frontmatter
-                    output_content = metadata_generator.generate_markdown_content(
-                        video_metadata, transcript_text, ai_content
-                    )
-
-                    # Set suggested filename if not provided
-                    if not output:
-                        suggested_filename = metadata_generator.get_suggested_filename(
-                            video_metadata, ai_content
-                        )
-                        output = Path(suggested_filename)
-                        logger.info(f"Using suggested filename: {output}")
-
-            except Exception as e:
-                logger.error(f"Failed to generate markdown with metadata: {e}")
-                logger.info("Falling back to plain text transcript")
-                output_content = extractor.transcript_to_text(transcript)
-                if not output:
-                    output = Path(f"{video_id}.md")
         else:  # text format
             output_content = extractor.transcript_to_text(transcript)
 

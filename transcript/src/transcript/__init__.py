@@ -1,12 +1,17 @@
-"""YouTube transcript extraction utilities.
+"""YouTube transcript extraction utilities using yt-dlp.
 
 This package provides functionality to extract transcripts from YouTube videos
-using the youtube-transcript-api library, with support for multiple languages
-and structured output formats. Includes metadata generation for enhanced
-markdown output with AI-powered filenames and frontmatter.
+using yt-dlp as the backend, with support for multiple languages
+and structured output formats.
 """
 
-from .extractor import TranscriptExtractor
+from .extractor import (
+    TranscriptExtractor,
+    TranscriptExtractorError,
+    TranscriptsDisabled,
+    NoTranscriptFound,
+    VideoUnavailable,
+)
 from .metadata import (
     MetadataGenerator,
     VideoMetadata,
@@ -19,6 +24,10 @@ from .metadata import (
 __version__ = "0.1.0"
 __all__ = [
     "TranscriptExtractor",
+    "TranscriptExtractorError",
+    "TranscriptsDisabled",
+    "NoTranscriptFound",
+    "VideoUnavailable",
     "MetadataGenerator",
     "VideoMetadata",
     "AIGeneratedContent",

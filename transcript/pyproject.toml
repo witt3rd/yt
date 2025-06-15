@@ -5,9 +5,8 @@ description = "YouTube transcript extraction utilities"
 requires-python = ">=3.13"
 dependencies = [
     "common",
-    "youtube-transcript-api>=0.6.2",
+    "yt-dlp>=2024.12.13",
     "click>=8.1.7",
-    "google-api-python-client>=2.0.0",
     "tenacity>=9.0.0",
 ]
 
