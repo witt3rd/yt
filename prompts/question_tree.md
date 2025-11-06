@@ -11,10 +11,13 @@
 ## Step-by-Step Synthesis Process
 
 ### Step 1: Identify the Central Question
+
 Determine the single overarching question the work attempts to answer. This becomes your document's organizing principle.
 
 ### Step 2: Create Document Architecture
+
 Structure your output as a complete educational document with:
+
 - **Descriptive Title**: Capture the essence of the content
 - **Central Question Statement**: Explicitly state what the work addresses
 - **Executive Summary**: 2-3 paragraphs previewing key insights and conclusions
@@ -22,19 +25,23 @@ Structure your output as a complete educational document with:
 - **Chapter Structure**: Within each part, create chapters addressing specific questions
 
 ### Step 3: Develop Comprehensive Content
+
 For each question level, provide substantial answers using source material:
 
 **Domain Questions** (Part Level):
+
 - Create major parts that address fundamental aspects of the central question
 - Begin each part with a clear domain question statement
 - Provide comprehensive coverage of that domain
 
 **Specific Questions** (Chapter Level):
+
 - Within each part, create chapters with specific question titles
 - Start each chapter by stating the specific question clearly
 - Provide detailed answers with evidence from the source material
 
 **Content Integration**:
+
 - Extract specific details, examples, data, and quotes from the source
 - Include concrete evidence, technical specifications, and real examples
 - Maintain accuracy to the source while organizing for educational clarity
@@ -47,6 +54,7 @@ For each question level, provide substantial answers using source material:
 **Question Statement**: [Clear, specific question]
 
 **Answer**: [Comprehensive response that includes:]
+
 - Direct answer to the question
 - Supporting evidence from the source material
 - Specific examples, data points, or quotes
@@ -54,6 +62,7 @@ For each question level, provide substantial answers using source material:
 - Implications and connections to broader themes
 
 **Example Format**:
+
 ```
 ### Chapter X: [Specific Question as Title]
 **Specific Question**: How does [specific aspect] work?
@@ -62,7 +71,9 @@ For each question level, provide substantial answers using source material:
 ```
 
 ### Step 5: Synthesis Sections
+
 Create synthesis sections that:
+
 - **Chapter Synthesis**: Combine insights within each chapter
 - **Part Synthesis**: Integrate insights across chapters within each part
 - **Final Synthesis**: Combine all domain insights to definitively answer the central question
@@ -70,18 +81,21 @@ Create synthesis sections that:
 ## Required Output Characteristics
 
 ### Content Requirements
+
 - **Every question must be paired with substantial answers**
 - **Include specific details, metrics, and examples from the source**
 - **Provide comprehensive coverage of the central question**
 - **Create standalone educational value for readers**
 
 ### Format Requirements
+
 - **Clear hierarchical structure with consistent heading levels**
 - **Professional, educational tone throughout**
 - **Bold key terms and concepts for emphasis**
 - **Logical flow from simple to complex understanding**
 
 ### Synthesis Requirements
+
 - **Build understanding progressively from atomic to central levels**
 - **Show explicit connections between different parts**
 - **Provide clear resolution of the central question**
@@ -90,6 +104,7 @@ Create synthesis sections that:
 ## Critical Success Criteria
 
 Your output should:
+
 1. **Teach readers about the subject matter** - not just about question structures
 2. **Use substantial content from the source material** - specific details, examples, data
 3. **Build understanding systematically** - from foundational concepts to complex synthesis
@@ -99,6 +114,7 @@ Your output should:
 ## What NOT to Produce
 
 **Avoid these common failures:**
+
 - Meta-analysis of question structures without substantial content
 - Lists of questions without comprehensive answers
 - Structural analysis that doesn't teach about the actual subject matter
